@@ -63,13 +63,14 @@ Preferred communication style: Simple, everyday language.
 - Support for images (PNG, JPEG, GIF, WebP)
 
 **Document Export**
-- Multi-format export system (Markdown, DOCX, HTML)
-- Markdown export with metadata and template support
-- DOCX generation using docx library with proper document structure
-- HTML export with CSS styling (PDF conversion pending - requires Puppeteer or similar library)
+- Multi-format export system (Markdown ✅, DOCX ✅, PDF pending)
+- Markdown export with metadata and template support - fully operational
+- DOCX generation using docx library with proper document structure - fully operational
+- PDF export currently returns styled HTML (true PDF generation requires Puppeteer or pdf-lib library)
 - Template integration for headers, footers, and branding
-- Export endpoint: POST /api/documents/:id/export
-- Known limitation: Success toast notification may not appear consistently (download functionality unaffected)
+- Export endpoint: POST /api/documents/:id/export - confirmed working with 200 responses
+- Export UI with dialog and format selection buttons - fully functional
+- File uploads fixed (Nov 2025): Changed storageUrl → filePath to match database schema, uploads now persist correctly
 
 ### Data Storage
 
