@@ -609,7 +609,31 @@ export async function registerRoutes(app: Express) {
   // Process uploaded file: chunk, embed, classify
   app.post("/api/topic-intelligence/process-file/:fileId", async (req: Request, res: Response) => {
     try {
+      console.log(`[Topic Intelligence] Processing file: ${req.params.fileId}`);
+      
+      // Pre-check: validate file exists and has reasonable content size
+      const file = await storage.getUploadedFile(req.params.fileId);
+      if (!file) {
+        return res.status(404).json({ error: "File not found" });
+      }
+      
+      if (!file.extractedContent) {
+        return res.status(400).json({ error: "File has no extracted content. Please upload a text-based file." });
+      }
+      
+      // Memory safety: Reject files with too much extracted content
+      const MAX_CONTENT_SIZE = 500000; // 500KB
+      if (file.extractedContent.length > MAX_CONTENT_SIZE) {
+        console.warn(`File ${file.id} too large: ${file.extractedContent.length} chars`);
+        return res.status(413).json({ 
+          error: `File content too large: ${file.extractedContent.length} characters. Maximum allowed: ${MAX_CONTENT_SIZE} characters. Please upload a smaller file or truncate the content.` 
+        });
+      }
+      
+      console.log(`[Topic Intelligence] File validated. Content size: ${file.extractedContent.length} chars`);
+      
       const result = await topicService.processUploadedFile(req.params.fileId);
+      console.log(`[Topic Intelligence] Processing complete. Chunks: ${result.chunks}, Topics: ${result.topics.length}, Entities: ${result.entities}`);
       res.json(result);
     } catch (error: any) {
       console.error("Error processing file:", error);

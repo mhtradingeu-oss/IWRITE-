@@ -27,8 +27,23 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<string> {
 
 export async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
   try {
+    // Memory safety: Limit buffer size
+    const MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
+    if (buffer.length > MAX_BUFFER_SIZE) {
+      throw new Error(`DOCX file too large: ${buffer.length} bytes. Maximum allowed: ${MAX_BUFFER_SIZE} bytes`);
+    }
+
     const result = await mammoth.extractRawText({ buffer });
-    return result.value.trim();
+    const text = result.value.trim();
+    
+    // Memory safety: Limit extracted text
+    const MAX_TEXT_SIZE = 500000; // 500KB
+    if (text.length > MAX_TEXT_SIZE) {
+      console.warn(`DOCX text too large (${text.length} chars), truncating to ${MAX_TEXT_SIZE}`);
+      return text.substring(0, MAX_TEXT_SIZE);
+    }
+    
+    return text;
   } catch (error) {
     console.error("Error extracting DOCX text:", error);
     throw new Error("Failed to extract text from DOCX");
@@ -37,10 +52,24 @@ export async function extractTextFromDOCX(buffer: Buffer): Promise<string> {
 
 export async function extractTextFromCSV(buffer: Buffer): Promise<string> {
   try {
-    const workbook = XLSX.read(buffer, { type: "buffer" });
+    // Memory safety: Limit buffer size
+    const MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
+    if (buffer.length > MAX_BUFFER_SIZE) {
+      throw new Error(`CSV file too large: ${buffer.length} bytes. Maximum allowed: ${MAX_BUFFER_SIZE} bytes`);
+    }
+
+    const workbook = XLSX.read(buffer, { type: "buffer", sheetRows: 1000 }); // Limit rows to prevent OOM
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
     const csv = XLSX.utils.sheet_to_csv(worksheet);
+    
+    // Memory safety: Limit extracted text size
+    const MAX_TEXT_SIZE = 500000; // 500KB
+    if (csv.length > MAX_TEXT_SIZE) {
+      console.warn(`CSV text too large (${csv.length} chars), truncating to ${MAX_TEXT_SIZE}`);
+      return csv.substring(0, MAX_TEXT_SIZE);
+    }
+    
     return csv;
   } catch (error) {
     console.error("Error extracting CSV text:", error);
@@ -50,13 +79,26 @@ export async function extractTextFromCSV(buffer: Buffer): Promise<string> {
 
 export async function extractTextFromXLSX(buffer: Buffer): Promise<string> {
   try {
-    const workbook = XLSX.read(buffer, { type: "buffer" });
+    // Memory safety: Limit buffer size
+    const MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
+    if (buffer.length > MAX_BUFFER_SIZE) {
+      throw new Error(`XLSX file too large: ${buffer.length} bytes. Maximum allowed: ${MAX_BUFFER_SIZE} bytes`);
+    }
+
+    const workbook = XLSX.read(buffer, { type: "buffer", sheetRows: 1000 }); // Limit rows per sheet
     let fullText = "";
+    const MAX_TEXT_SIZE = 500000; // 500KB total
 
     for (const sheetName of workbook.SheetNames) {
       const worksheet = workbook.Sheets[sheetName];
       const csv = XLSX.utils.sheet_to_csv(worksheet);
       fullText += `Sheet: ${sheetName}\n${csv}\n\n`;
+      
+      // Stop if we've exceeded the size limit
+      if (fullText.length > MAX_TEXT_SIZE) {
+        console.warn(`XLSX text too large (${fullText.length} chars), truncating to ${MAX_TEXT_SIZE}`);
+        return fullText.substring(0, MAX_TEXT_SIZE);
+      }
     }
 
     return fullText.trim();

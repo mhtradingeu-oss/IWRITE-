@@ -27,6 +27,12 @@ export class TopicIntelligenceService {
         throw new Error("File not found or has no extracted content");
       }
 
+      // Memory safety: Limit content size to prevent OOM
+      const MAX_CONTENT_SIZE = 500000; // 500KB of text
+      if (file.extractedContent.length > MAX_CONTENT_SIZE) {
+        throw new Error(`File too large: ${file.extractedContent.length} chars. Maximum allowed: ${MAX_CONTENT_SIZE} chars`);
+      }
+
       // Step 1: Chunk the document
       const chunks = chunkDocument(file.extractedContent, {
         maxChunkSize: 1000,
@@ -34,6 +40,13 @@ export class TopicIntelligenceService {
         preserveHeadings: true,
         preserveSections: true,
       });
+
+      // Memory safety: Limit number of chunks to prevent OOM during embedding generation
+      const MAX_CHUNKS = 200;
+      if (chunks.length > MAX_CHUNKS) {
+        console.warn(`Too many chunks (${chunks.length}), limiting to ${MAX_CHUNKS}`);
+        chunks.splice(MAX_CHUNKS);
+      }
 
       console.log(`Created ${chunks.length} chunks for file ${file.filename}`);
 
