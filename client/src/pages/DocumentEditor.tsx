@@ -70,6 +70,10 @@ const translations = {
     selectLanguage: "Select target language",
     translating: "Translating...",
     rewriting: "Rewriting...",
+    export: "Export",
+    exportFormat: "Export Format",
+    exportDocument: "Export Document",
+    exporting: "Exporting...",
   },
   ar: {
     backToDocuments: "العودة إلى المستندات",
@@ -101,6 +105,10 @@ const translations = {
     selectLanguage: "اختر اللغة المستهدفة",
     translating: "جاري الترجمة...",
     rewriting: "جاري إعادة الكتابة...",
+    export: "تصدير",
+    exportFormat: "صيغة التصدير",
+    exportDocument: "تصدير المستند",
+    exporting: "جاري التصدير...",
   },
   de: {
     backToDocuments: "Zurück zu Dokumenten",
@@ -132,6 +140,10 @@ const translations = {
     selectLanguage: "Zielsprache auswählen",
     translating: "Übersetzen...",
     rewriting: "Umschreiben...",
+    export: "Exportieren",
+    exportFormat: "Exportformat",
+    exportDocument: "Dokument exportieren",
+    exporting: "Exportiere...",
   },
 };
 
@@ -227,6 +239,57 @@ export default function DocumentEditor() {
       toast({
         title: "QA check completed",
         description: "The quality check has been performed.",
+      });
+    },
+  });
+
+  const exportMutation = useMutation({
+    mutationFn: async (format: "md" | "docx" | "pdf") => {
+      try {
+        const response = await fetch(`/api/documents/${params?.id}/export`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ format }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+          throw new Error(errorData.error || "Export failed");
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        
+        const contentDisposition = response.headers.get("Content-Disposition");
+        const filename = contentDisposition?.match(/filename="([^"]+)"/)?.[1] || `document.${format}`;
+        a.download = filename;
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        // Small delay to ensure download starts before cleanup
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error("Export error:", error);
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      toast({
+        title: "Export successful",
+        description: "Your document has been exported.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Export failed",
+        description: "There was an error exporting your document.",
+        variant: "destructive",
       });
     },
   });
@@ -334,6 +397,50 @@ export default function DocumentEditor() {
             <Sparkles className="h-4 w-4" />
             {rewriteMutation.isPending ? t.rewriting : t.rewrite}
           </Button>
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" data-testid="button-export">
+                <Download className="h-4 w-4" />
+                {t.export}
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t.exportDocument}</DialogTitle>
+                <DialogDescription>{t.exportFormat}</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2">
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => exportMutation.mutate("md")}
+                  disabled={exportMutation.isPending}
+                  data-testid="button-export-md"
+                >
+                  Markdown (.md)
+                </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => exportMutation.mutate("docx")}
+                  disabled={exportMutation.isPending}
+                  data-testid="button-export-docx"
+                >
+                  Word (.docx)
+                </Button>
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  onClick={() => exportMutation.mutate("pdf")}
+                  disabled={exportMutation.isPending}
+                  data-testid="button-export-pdf"
+                >
+                  PDF (.pdf)
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <Button
             onClick={() => updateMutation.mutate()}

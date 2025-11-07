@@ -62,6 +62,14 @@ Preferred communication style: Simple, everyday language.
 - CSV/XLSX processing using xlsx library
 - Support for images (PNG, JPEG, GIF, WebP)
 
+**Document Export**
+- Multi-format export system (Markdown, DOCX, HTML)
+- Markdown export with metadata and template support
+- DOCX generation using docx library with proper document structure
+- HTML export with CSS styling (PDF conversion pending)
+- Template integration for headers, footers, and branding
+- Export endpoint: POST /api/documents/:id/export
+
 ### Data Storage
 
 **Database**
@@ -78,7 +86,9 @@ Preferred communication style: Simple, everyday language.
 - **qaCheckResults**: Quality assurance check results with issue tracking
 
 **Storage Strategy**
-- In-memory storage implementation for development/testing
+- PostgreSQL database for all persistent data (documents, templates, style profiles, versions, QA results)
+- DbStorage class with Drizzle ORM for type-safe database operations
+- In-memory fallback for testing when DATABASE_URL not available
 - Google Cloud Storage integration for production file uploads (when `DEFAULT_OBJECT_STORAGE_BUCKET_ID` is set)
 - File metadata stored in database, actual files in object storage
 

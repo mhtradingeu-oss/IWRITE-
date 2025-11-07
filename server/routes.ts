@@ -3,8 +3,9 @@ import multer from "multer";
 import { storage } from "./storage";
 import { generateDocument, rewriteDocument, translateDocument, performQACheck } from "./ai";
 import { extractTextFromFile } from "./fileProcessing";
-import { insertDocumentSchema, insertTemplateSchema, insertStyleProfileSchema } from "@shared/schema";
+import { insertDocumentSchema, insertTemplateSchema, insertStyleProfileSchema, exportDocumentSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
+import { exportToMarkdown, exportToDOCX, exportToPDF } from "./export";
 
 // Initialize Google Cloud Storage for file uploads (only in production)
 let bucket: any = null;
@@ -300,6 +301,63 @@ export function registerRoutes(app: Express) {
       const results = await storage.getQACheckResults(req.params.id);
       res.json(results);
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Document Export
+  app.post("/api/documents/:id/export", async (req: Request, res: Response) => {
+    try {
+      const document = await storage.getDocument(req.params.id);
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      const validation = exportDocumentSchema.safeParse({ 
+        documentId: req.params.id, 
+        ...req.body 
+      });
+      if (!validation.success) {
+        return res.status(400).json({ error: fromZodError(validation.error).message });
+      }
+
+      const { format } = validation.data;
+
+      // Get template if available
+      let template = undefined;
+      if (document.templateId) {
+        template = await storage.getTemplate(document.templateId) || undefined;
+      }
+
+      let buffer: Buffer;
+      let contentType: string;
+      let filename: string;
+
+      switch (format) {
+        case "md":
+          buffer = await exportToMarkdown(document, template);
+          contentType = "text/markdown";
+          filename = `${document.title.replace(/[^a-z0-9]/gi, "_")}.md`;
+          break;
+        case "docx":
+          buffer = await exportToDOCX(document, template);
+          contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+          filename = `${document.title.replace(/[^a-z0-9]/gi, "_")}.docx`;
+          break;
+        case "pdf":
+          buffer = await exportToPDF(document, template);
+          contentType = "text/html"; // For now, returning HTML instead of actual PDF
+          filename = `${document.title.replace(/[^a-z0-9]/gi, "_")}.html`;
+          break;
+        default:
+          return res.status(400).json({ error: "Invalid export format" });
+      }
+
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.send(buffer);
+    } catch (error: any) {
+      console.error("Export error:", error);
       res.status(500).json({ error: error.message });
     }
   });
