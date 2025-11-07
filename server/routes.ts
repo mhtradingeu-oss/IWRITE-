@@ -39,7 +39,7 @@ const upload = multer({
   },
 });
 
-export function registerRoutes(app: Express) {
+export async function registerRoutes(app: Express) {
   // Dashboard stats
   app.get("/api/dashboard/stats", async (req: Request, res: Response) => {
     try {
@@ -596,6 +596,136 @@ export function registerRoutes(app: Express) {
     try {
       const versions = await storage.getDocumentVersions(req.params.id);
       res.json(versions);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Topic Intelligence Routes
+  // Import the service dynamically to avoid circular dependencies
+  const { TopicIntelligenceService } = await import("./topic-intelligence/service.js");
+  const topicService = new TopicIntelligenceService(storage);
+
+  // Process uploaded file: chunk, embed, classify
+  app.post("/api/topic-intelligence/process-file/:fileId", async (req: Request, res: Response) => {
+    try {
+      const result = await topicService.processUploadedFile(req.params.fileId);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error processing file:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Semantic search across all documents
+  app.post("/api/topic-intelligence/search", async (req: Request, res: Response) => {
+    try {
+      const { query, topK, threshold, topicId } = req.body;
+      
+      if (!query || typeof query !== "string") {
+        return res.status(400).json({ error: "Query is required" });
+      }
+
+      const results = await topicService.semanticSearch(query, {
+        topK: topK || 10,
+        threshold: threshold || 0.7,
+        topicId,
+      });
+
+      res.json(results);
+    } catch (error: any) {
+      console.error("Semantic search error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Topics CRUD
+  app.get("/api/topics", async (req: Request, res: Response) => {
+    try {
+      const topics = await storage.getAllTopics();
+      res.json(topics);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/topics/:id", async (req: Request, res: Response) => {
+    try {
+      const topic = await storage.getTopic(req.params.id);
+      if (!topic) {
+        return res.status(404).json({ error: "Topic not found" });
+      }
+      res.json(topic);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/topics", async (req: Request, res: Response) => {
+    try {
+      // Validate with Zod schema
+      const { insertTopicSchema } = await import("@shared/schema");
+      const validation = insertTopicSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: fromZodError(validation.error).toString() 
+        });
+      }
+
+      const topic = await storage.createTopic(validation.data);
+      res.json(topic);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/topics/:id", async (req: Request, res: Response) => {
+    try {
+      const deleted = await storage.deleteTopic(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Topic not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Topic Packs
+  app.get("/api/topic-packs", async (req: Request, res: Response) => {
+    try {
+      const packs = await storage.getAllTopicPacks();
+      res.json(packs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/topic-packs/topic/:topicId", async (req: Request, res: Response) => {
+    try {
+      const packs = await storage.getTopicPacksByTopic(req.params.topicId);
+      res.json(packs);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/topic-packs/build/:topicId", async (req: Request, res: Response) => {
+    try {
+      await topicService.buildTopicPack(req.params.topicId);
+      res.json({ success: true, message: "Topic pack built successfully" });
+    } catch (error: any) {
+      console.error("Error building topic pack:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get document chunks for a file
+  app.get("/api/chunks/file/:fileId", async (req: Request, res: Response) => {
+    try {
+      const chunks = await storage.getChunksByFile(req.params.fileId);
+      res.json(chunks);
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

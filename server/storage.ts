@@ -11,12 +11,27 @@ import {
   type InsertDocumentVersion,
   type QACheckResult,
   type InsertQACheckResult,
+  type DocumentChunk,
+  type InsertDocumentChunk,
+  type Topic,
+  type InsertTopic,
+  type DocumentTopic,
+  type InsertDocumentTopic,
+  type TopicPack,
+  type InsertTopicPack,
+  type Entity,
+  type InsertEntity,
   documents,
   templates,
   styleProfiles,
   uploadedFiles,
   documentVersions,
   qaCheckResults,
+  documentChunks,
+  topics,
+  documentTopics,
+  topicPacks,
+  entities,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { neon } from "@neondatabase/serverless";
@@ -59,6 +74,43 @@ export interface IStorage {
   // QA Checks
   getQACheckResults(documentId: string): Promise<QACheckResult[]>;
   createQACheckResult(result: InsertQACheckResult): Promise<QACheckResult>;
+
+  // Topic Intelligence: Document Chunks
+  getDocumentChunk(id: string): Promise<DocumentChunk | undefined>;
+  getAllDocumentChunks(): Promise<DocumentChunk[]>;
+  getChunksByDocument(documentId: string): Promise<DocumentChunk[]>;
+  getChunksByFile(fileId: string): Promise<DocumentChunk[]>;
+  createDocumentChunk(chunk: InsertDocumentChunk): Promise<DocumentChunk>;
+  deleteDocumentChunk(id: string): Promise<boolean>;
+
+  // Topics
+  getTopic(id: string): Promise<Topic | undefined>;
+  getAllTopics(): Promise<Topic[]>;
+  createTopic(topic: InsertTopic): Promise<Topic>;
+  updateTopic(id: string, topic: Partial<InsertTopic>): Promise<Topic | undefined>;
+  deleteTopic(id: string): Promise<boolean>;
+
+  // Document-Topic Relationships
+  getDocumentTopicsByDocument(documentId: string): Promise<DocumentTopic[]>;
+  getDocumentTopicsByFile(fileId: string): Promise<DocumentTopic[]>;
+  getDocumentTopicsByTopic(topicId: string): Promise<DocumentTopic[]>;
+  createDocumentTopic(link: InsertDocumentTopic): Promise<DocumentTopic>;
+  deleteDocumentTopic(id: string): Promise<boolean>;
+
+  // Topic Packs
+  getTopicPack(id: string): Promise<TopicPack | undefined>;
+  getAllTopicPacks(): Promise<TopicPack[]>;
+  getTopicPacksByTopic(topicId: string): Promise<TopicPack[]>;
+  createTopicPack(pack: InsertTopicPack): Promise<TopicPack>;
+  updateTopicPack(id: string, pack: Partial<InsertTopicPack>): Promise<TopicPack | undefined>;
+  deleteTopicPack(id: string): Promise<boolean>;
+
+  // Entities
+  getEntity(id: string): Promise<Entity | undefined>;
+  getEntitiesByChunk(chunkId: string): Promise<Entity[]>;
+  getEntitiesByChunks(chunkIds: string[]): Promise<Entity[]>;
+  createEntity(entity: InsertEntity): Promise<Entity>;
+  deleteEntity(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
@@ -95,6 +147,7 @@ export class MemStorage implements IStorage {
     const document: Document = {
       ...doc,
       id,
+      language: doc.language || "en",
       createdAt: now,
       updatedAt: now,
       templateId: doc.templateId || null,
@@ -263,12 +316,41 @@ export class MemStorage implements IStorage {
     const newResult: QACheckResult = {
       ...result,
       id,
-      issues: result.issues || null,
+      issues: result.issues ? [...result.issues] : null,
       createdAt: new Date(),
     };
     this.qaCheckResults.set(id, newResult);
     return newResult;
   }
+
+  // Topic Intelligence stubs (not implemented in MemStorage)
+  async getDocumentChunk(): Promise<DocumentChunk | undefined> { throw new Error("Topic Intelligence not supported in MemStorage"); }
+  async getAllDocumentChunks(): Promise<DocumentChunk[]> { return []; }
+  async getChunksByDocument(): Promise<DocumentChunk[]> { return []; }
+  async getChunksByFile(): Promise<DocumentChunk[]> { return []; }
+  async createDocumentChunk(): Promise<DocumentChunk> { throw new Error("Not implemented"); }
+  async deleteDocumentChunk(): Promise<boolean> { return false; }
+  async getTopic(): Promise<Topic | undefined> { return undefined; }
+  async getAllTopics(): Promise<Topic[]> { return []; }
+  async createTopic(): Promise<Topic> { throw new Error("Not implemented"); }
+  async updateTopic(): Promise<Topic | undefined> { return undefined; }
+  async deleteTopic(): Promise<boolean> { return false; }
+  async getDocumentTopicsByDocument(): Promise<DocumentTopic[]> { return []; }
+  async getDocumentTopicsByFile(): Promise<DocumentTopic[]> { return []; }
+  async getDocumentTopicsByTopic(): Promise<DocumentTopic[]> { return []; }
+  async createDocumentTopic(): Promise<DocumentTopic> { throw new Error("Not implemented"); }
+  async deleteDocumentTopic(): Promise<boolean> { return false; }
+  async getTopicPack(): Promise<TopicPack | undefined> { return undefined; }
+  async getAllTopicPacks(): Promise<TopicPack[]> { return []; }
+  async getTopicPacksByTopic(): Promise<TopicPack[]> { return []; }
+  async createTopicPack(): Promise<TopicPack> { throw new Error("Not implemented"); }
+  async updateTopicPack(): Promise<TopicPack | undefined> { return undefined; }
+  async deleteTopicPack(): Promise<boolean> { return false; }
+  async getEntity(): Promise<Entity | undefined> { return undefined; }
+  async getEntitiesByChunk(): Promise<Entity[]> { return []; }
+  async getEntitiesByChunks(): Promise<Entity[]> { return []; }
+  async createEntity(): Promise<Entity> { throw new Error("Not implemented"); }
+  async deleteEntity(): Promise<boolean> { return false; }
 }
 
 // Database Storage Implementation
@@ -430,8 +512,209 @@ export class DbStorage implements IStorage {
   }
 
   async createQACheckResult(result: InsertQACheckResult): Promise<QACheckResult> {
-    const qr = await this.db.insert(qaCheckResults).values(result).returning();
+    const data: typeof qaCheckResults.$inferInsert = {
+      ...result,
+      issues: result.issues ? [...result.issues] : undefined,
+    };
+    const qr = await this.db.insert(qaCheckResults).values(data).returning();
     return qr[0];
+  }
+
+  // Topic Intelligence: Document Chunks
+  async getDocumentChunk(id: string): Promise<DocumentChunk | undefined> {
+    const result = await this.db.select().from(documentChunks).where(eq(documentChunks.id, id));
+    return result[0];
+  }
+
+  async getAllDocumentChunks(): Promise<DocumentChunk[]> {
+    return await this.db.select().from(documentChunks).orderBy(desc(documentChunks.createdAt));
+  }
+
+  async getChunksByDocument(documentId: string): Promise<DocumentChunk[]> {
+    return await this.db
+      .select()
+      .from(documentChunks)
+      .where(eq(documentChunks.documentId, documentId))
+      .orderBy(documentChunks.chunkIndex);
+  }
+
+  async getChunksByFile(fileId: string): Promise<DocumentChunk[]> {
+    return await this.db
+      .select()
+      .from(documentChunks)
+      .where(eq(documentChunks.uploadedFileId, fileId))
+      .orderBy(documentChunks.chunkIndex);
+  }
+
+  async createDocumentChunk(chunk: InsertDocumentChunk): Promise<DocumentChunk> {
+    const data: typeof documentChunks.$inferInsert = {
+      ...chunk,
+      embedding: chunk.embedding ? [...chunk.embedding] : undefined,
+      metadata: chunk.metadata ? {
+        startChar: chunk.metadata.startChar,
+        endChar: chunk.metadata.endChar,
+        pageNumber: chunk.metadata.pageNumber,
+        section: chunk.metadata.section,
+      } : undefined,
+    };
+    const result = await this.db.insert(documentChunks).values(data).returning();
+    return result[0];
+  }
+
+  async deleteDocumentChunk(id: string): Promise<boolean> {
+    const result = await this.db.delete(documentChunks).where(eq(documentChunks.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Topics
+  async getTopic(id: string): Promise<Topic | undefined> {
+    const result = await this.db.select().from(topics).where(eq(topics.id, id));
+    return result[0];
+  }
+
+  async getAllTopics(): Promise<Topic[]> {
+    return await this.db.select().from(topics).orderBy(desc(topics.createdAt));
+  }
+
+  async createTopic(topic: InsertTopic): Promise<Topic> {
+    const result = await this.db.insert(topics).values(topic).returning();
+    return result[0];
+  }
+
+  async updateTopic(id: string, topic: Partial<InsertTopic>): Promise<Topic | undefined> {
+    const updates = Object.fromEntries(
+      Object.entries(topic).filter(([_, value]) => value !== undefined)
+    );
+    const result = await this.db
+      .update(topics)
+      .set(updates)
+      .where(eq(topics.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTopic(id: string): Promise<boolean> {
+    const result = await this.db.delete(topics).where(eq(topics.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Document-Topic Relationships
+  async getDocumentTopicsByDocument(documentId: string): Promise<DocumentTopic[]> {
+    return await this.db
+      .select()
+      .from(documentTopics)
+      .where(eq(documentTopics.documentId, documentId));
+  }
+
+  async getDocumentTopicsByFile(fileId: string): Promise<DocumentTopic[]> {
+    return await this.db
+      .select()
+      .from(documentTopics)
+      .where(eq(documentTopics.uploadedFileId, fileId));
+  }
+
+  async getDocumentTopicsByTopic(topicId: string): Promise<DocumentTopic[]> {
+    return await this.db
+      .select()
+      .from(documentTopics)
+      .where(eq(documentTopics.topicId, topicId));
+  }
+
+  async createDocumentTopic(link: InsertDocumentTopic): Promise<DocumentTopic> {
+    const result = await this.db.insert(documentTopics).values(link).returning();
+    return result[0];
+  }
+
+  async deleteDocumentTopic(id: string): Promise<boolean> {
+    const result = await this.db.delete(documentTopics).where(eq(documentTopics.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Topic Packs
+  async getTopicPack(id: string): Promise<TopicPack | undefined> {
+    const result = await this.db.select().from(topicPacks).where(eq(topicPacks.id, id));
+    return result[0];
+  }
+
+  async getAllTopicPacks(): Promise<TopicPack[]> {
+    return await this.db.select().from(topicPacks).orderBy(desc(topicPacks.createdAt));
+  }
+
+  async getTopicPacksByTopic(topicId: string): Promise<TopicPack[]> {
+    return await this.db
+      .select()
+      .from(topicPacks)
+      .where(eq(topicPacks.topicId, topicId));
+  }
+
+  async createTopicPack(pack: InsertTopicPack): Promise<TopicPack> {
+    const data: typeof topicPacks.$inferInsert = {
+      ...pack,
+      priorityRules: pack.priorityRules ? [...pack.priorityRules] : undefined,
+      sampleSections: pack.sampleSections ? pack.sampleSections.map(s => ({
+        heading: s.heading,
+        content: s.content,
+        sourceChunkIds: [...s.sourceChunkIds],
+      })) : undefined,
+    };
+    const result = await this.db.insert(topicPacks).values(data).returning();
+    return result[0];
+  }
+
+  async updateTopicPack(id: string, pack: Partial<InsertTopicPack>): Promise<TopicPack | undefined> {
+    const updates = Object.fromEntries(
+      Object.entries(pack).filter(([_, value]) => value !== undefined)
+    );
+    const result = await this.db
+      .update(topicPacks)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(topicPacks.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTopicPack(id: string): Promise<boolean> {
+    const result = await this.db.delete(topicPacks).where(eq(topicPacks.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Entities
+  async getEntity(id: string): Promise<Entity | undefined> {
+    const result = await this.db.select().from(entities).where(eq(entities.id, id));
+    return result[0];
+  }
+
+  async getEntitiesByChunk(chunkId: string): Promise<Entity[]> {
+    return await this.db
+      .select()
+      .from(entities)
+      .where(eq(entities.chunkId, chunkId));
+  }
+
+  async getEntitiesByChunks(chunkIds: string[]): Promise<Entity[]> {
+    if (chunkIds.length === 0) return [];
+    const results = await Promise.all(
+      chunkIds.map(id => this.getEntitiesByChunk(id))
+    );
+    return results.flat();
+  }
+
+  async createEntity(entity: InsertEntity): Promise<Entity> {
+    const data: typeof entities.$inferInsert = {
+      ...entity,
+      metadata: entity.metadata ? {
+        unit: entity.metadata.unit,
+        currency: entity.metadata.currency,
+        regulation: entity.metadata.regulation,
+      } : undefined,
+    };
+    const result = await this.db.insert(entities).values(data).returning();
+    return result[0];
+  }
+
+  async deleteEntity(id: string): Promise<boolean> {
+    const result = await this.db.delete(entities).where(eq(entities.id, id)).returning();
+    return result.length > 0;
   }
 }
 

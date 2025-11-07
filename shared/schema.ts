@@ -94,6 +94,77 @@ export const qaCheckResults = pgTable("qa_check_results", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Topic Intelligence: Document Chunks with Embeddings
+export const documentChunks = pgTable("document_chunks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id"),
+  uploadedFileId: varchar("uploaded_file_id"),
+  chunkIndex: integer("chunk_index").notNull(),
+  content: text("content").notNull(),
+  heading: text("heading"),
+  embedding: jsonb("embedding").$type<number[]>(),
+  metadata: jsonb("metadata").$type<{
+    startChar?: number;
+    endChar?: number;
+    pageNumber?: number;
+    section?: string;
+  }>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Topics table
+export const topics = pgTable("topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  keywords: text("keywords").array(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Document-Topic relationship (many-to-many)
+export const documentTopics = pgTable("document_topics", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  documentId: varchar("document_id"),
+  uploadedFileId: varchar("uploaded_file_id"),
+  topicId: varchar("topic_id").notNull(),
+  confidence: integer("confidence").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Topic Packs: Knowledge bases per topic
+export const topicPacks = pgTable("topic_packs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  topicId: varchar("topic_id").notNull(),
+  name: text("name").notNull(),
+  terminologyMap: jsonb("terminology_map").$type<Record<string, string>>(),
+  priorityRules: jsonb("priority_rules").$type<Array<{
+    rule: string;
+    priority: number;
+  }>>(),
+  sampleSections: jsonb("sample_sections").$type<Array<{
+    heading: string;
+    content: string;
+    sourceChunkIds: string[];
+  }>>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+// Extracted Entities (numbers, regulations, terms)
+export const entities = pgTable("entities", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  chunkId: varchar("chunk_id").notNull(),
+  entityType: text("entity_type").notNull(),
+  value: text("value").notNull(),
+  context: text("context"),
+  metadata: jsonb("metadata").$type<{
+    unit?: string;
+    currency?: string;
+    regulation?: string;
+  }>(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Insert schemas
 export const insertDocumentSchema = createInsertSchema(documents).pick({
   title: true,
@@ -138,6 +209,45 @@ export const insertQACheckResultSchema = createInsertSchema(qaCheckResults).pick
   checkType: true,
   status: true,
   issues: true,
+});
+
+export const insertDocumentChunkSchema = createInsertSchema(documentChunks).pick({
+  documentId: true,
+  uploadedFileId: true,
+  chunkIndex: true,
+  content: true,
+  heading: true,
+  embedding: true,
+  metadata: true,
+});
+
+export const insertTopicSchema = createInsertSchema(topics).pick({
+  name: true,
+  description: true,
+  keywords: true,
+});
+
+export const insertDocumentTopicSchema = createInsertSchema(documentTopics).pick({
+  documentId: true,
+  uploadedFileId: true,
+  topicId: true,
+  confidence: true,
+});
+
+export const insertTopicPackSchema = createInsertSchema(topicPacks).pick({
+  topicId: true,
+  name: true,
+  terminologyMap: true,
+  priorityRules: true,
+  sampleSections: true,
+});
+
+export const insertEntitySchema = createInsertSchema(entities).pick({
+  chunkId: true,
+  entityType: true,
+  value: true,
+  context: true,
+  metadata: true,
 });
 
 // Extended schemas with validation
@@ -187,6 +297,21 @@ export type DocumentVersion = typeof documentVersions.$inferSelect;
 
 export type InsertQACheckResult = z.infer<typeof insertQACheckResultSchema>;
 export type QACheckResult = typeof qaCheckResults.$inferSelect;
+
+export type InsertDocumentChunk = z.infer<typeof insertDocumentChunkSchema>;
+export type DocumentChunk = typeof documentChunks.$inferSelect;
+
+export type InsertTopic = z.infer<typeof insertTopicSchema>;
+export type Topic = typeof topics.$inferSelect;
+
+export type InsertDocumentTopic = z.infer<typeof insertDocumentTopicSchema>;
+export type DocumentTopic = typeof documentTopics.$inferSelect;
+
+export type InsertTopicPack = z.infer<typeof insertTopicPackSchema>;
+export type TopicPack = typeof topicPacks.$inferSelect;
+
+export type InsertEntity = z.infer<typeof insertEntitySchema>;
+export type Entity = typeof entities.$inferSelect;
 
 export type GenerateDocumentRequest = z.infer<typeof generateDocumentSchema>;
 export type RewriteDocumentRequest = z.infer<typeof rewriteDocumentSchema>;
