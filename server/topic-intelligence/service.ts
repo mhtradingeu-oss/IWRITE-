@@ -50,23 +50,17 @@ export class TopicIntelligenceService {
 
       console.log(`Created ${chunks.length} chunks for file ${file.filename}`);
 
-      // Step 2: Generate embeddings for all chunks
-      const embeddings = await generateEmbeddingsBatch(
-        chunks.map(c => c.content)
-      );
-
-      // Step 3: Store chunks with embeddings
+      // Step 2: Store chunks WITHOUT embeddings (simplified mode)
       const storedChunks: string[] = [];
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
-        const embedding = embeddings[i];
 
         const chunkData: InsertDocumentChunk = {
           uploadedFileId: fileId,
           chunkIndex: chunk.index,
           content: chunk.content,
           heading: chunk.heading,
-          embedding: embedding.embedding,
+          embedding: [], // Empty array - no AI embeddings
           metadata: chunk.metadata,
         };
 
@@ -74,100 +68,44 @@ export class TopicIntelligenceService {
         storedChunks.push(stored.id);
       }
 
-      // Step 4: Classify topics
+      console.log(`Stored ${storedChunks.length} chunks (simplified mode - no AI)`);
+
+      // Step 3: Simple keyword-based topic classification
       const existingTopics = await this.storage.getAllTopics();
-      const classifications = await classifyTopics(
-        file.extractedContent,
-        existingTopics.map(t => ({
-          name: t.name,
-          description: t.description || "",
-          keywords: t.keywords || [],
-        }))
-      );
+      const classifications = this.classifyByKeywords(file.extractedContent, existingTopics);
 
-      console.log(`Classified into ${classifications.length} topics`);
+      console.log(`Classified into ${classifications.length} topics using keywords`);
 
-      // Step 5: Store or link topics
+      // Step 4: Link to topics
       const topicIds: string[] = [];
-      for (const classification of classifications) {
-        // Check if topic exists
-        let topic = existingTopics.find(t => 
-          t.name.toLowerCase() === classification.topicName.toLowerCase()
-        );
-
-        if (!topic) {
-          // Create new topic
-          const topicData: InsertTopic = {
-            name: classification.topicName,
-            description: classification.description,
-            keywords: classification.keywords,
-          };
-          topic = await this.storage.createTopic(topicData);
-        }
-
-        topicIds.push(topic.id);
+      for (const topicId of classifications) {
+        topicIds.push(topicId);
 
         // Link file to topic
         const linkData: InsertDocumentTopic = {
           uploadedFileId: fileId,
-          topicId: topic.id,
-          confidence: classification.confidence,
+          topicId,
+          confidence: 0.8, // Fixed confidence for keyword matching
         };
         await this.storage.createDocumentTopic(linkData);
       }
 
-      // Step 6: Extract entities from content and link to appropriate chunks
-      const entities = await extractEntities(file.extractedContent);
+      // Step 5: Simple entity extraction (regex-based, no AI)
       let entityCount = 0;
 
       if (storedChunks.length > 0) {
-        // Helper function to find the best matching chunk for an entity
-        const findChunkForEntity = (context: string): string => {
-          // Find chunk that contains the entity context
-          for (let i = 0; i < chunks.length; i++) {
-            if (chunks[i].content.includes(context.substring(0, 50))) {
-              return storedChunks[i];
-            }
-          }
-          // Fallback to first chunk if no match found
-          return storedChunks[0];
-        };
-
-        // Store numbers with proper chunk linkage
-        for (const num of entities.numbers) {
-          const chunkId = findChunkForEntity(num.context);
+        const simpleEntities = this.extractSimpleEntities(file.extractedContent);
+        
+        // Link entities to first chunk (simplified approach)
+        const firstChunkId = storedChunks[0];
+        
+        for (const entity of simpleEntities) {
           const entityData: InsertEntity = {
-            chunkId,
-            entityType: "number",
-            value: num.value,
-            context: num.context,
-            metadata: { unit: num.unit },
-          };
-          await this.storage.createEntity(entityData);
-          entityCount++;
-        }
-
-        // Store regulations with proper chunk linkage
-        for (const reg of entities.regulations) {
-          const chunkId = findChunkForEntity(reg.context);
-          const entityData: InsertEntity = {
-            chunkId,
-            entityType: "regulation",
-            value: reg.value,
-            context: reg.context,
-          };
-          await this.storage.createEntity(entityData);
-          entityCount++;
-        }
-
-        // Store terms with proper chunk linkage
-        for (const term of entities.terms) {
-          const chunkId = findChunkForEntity(term.context);
-          const entityData: InsertEntity = {
-            chunkId,
-            entityType: "term",
-            value: term.value,
-            context: term.context,
+            chunkId: firstChunkId,
+            entityType: entity.type,
+            value: entity.value,
+            context: entity.context,
+            metadata: entity.metadata,
           };
           await this.storage.createEntity(entityData);
           entityCount++;
@@ -186,7 +124,7 @@ export class TopicIntelligenceService {
   }
 
   /**
-   * Semantic search across all document chunks
+   * Simple keyword search (no AI embeddings)
    */
   async semanticSearch(
     query: string,
@@ -202,12 +140,9 @@ export class TopicIntelligenceService {
     heading?: string;
     sourceFile?: string;
   }>> {
-    const { topK = 10, threshold = 0.7, topicId } = options;
+    const { topK = 10, topicId } = options;
 
     try {
-      // Generate query embedding
-      const queryEmbedding = await generateEmbedding(query);
-
       // Get all chunks (or filter by topic)
       let chunks = await this.storage.getAllDocumentChunks();
 
@@ -218,36 +153,42 @@ export class TopicIntelligenceService {
         chunks = chunks.filter(c => c.uploadedFileId && fileIds.includes(c.uploadedFileId));
       }
 
-      // Filter chunks that have embeddings
-      const chunksWithEmbeddings = chunks.filter(c => c.embedding && Array.isArray(c.embedding));
-
-      // Find similar chunks
-      const similar = findSimilarChunks(
-        queryEmbedding.embedding,
-        chunksWithEmbeddings.map(c => ({
-          id: c.id,
-          content: c.content,
-          embedding: c.embedding as number[],
-          heading: c.heading || undefined,
-          metadata: c.metadata,
-        })),
-        topK,
-        threshold
-      );
+      // Simple keyword matching
+      const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      
+      const results = chunks
+        .map(chunk => {
+          const content = chunk.content.toLowerCase();
+          const matches = queryWords.filter(word => content.includes(word)).length;
+          const similarity = matches / queryWords.length;
+          
+          return {
+            chunk,
+            chunkId: chunk.id,
+            content: chunk.content,
+            similarity,
+            heading: chunk.heading || undefined,
+          };
+        })
+        .filter(r => r.similarity > 0)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, topK);
 
       // Enhance with source file info
       const enhanced = await Promise.all(
-        similar.map(async (s) => {
-          const chunk = chunks.find(c => c.id === s.chunkId);
+        results.map(async (r) => {
           let sourceFile: string | undefined;
           
-          if (chunk?.uploadedFileId) {
-            const file = await this.storage.getUploadedFile(chunk.uploadedFileId);
+          if (r.chunk?.uploadedFileId) {
+            const file = await this.storage.getUploadedFile(r.chunk.uploadedFileId);
             sourceFile = file?.filename;
           }
 
           return {
-            ...s,
+            chunkId: r.chunkId,
+            content: r.content,
+            similarity: r.similarity,
+            heading: r.heading,
             sourceFile,
           };
         })
@@ -255,9 +196,87 @@ export class TopicIntelligenceService {
 
       return enhanced;
     } catch (error: any) {
-      console.error("Semantic search failed:", error);
+      console.error("Search failed:", error);
       throw error;
     }
+  }
+
+  /**
+   * Classify document by keyword matching (no AI)
+   */
+  private classifyByKeywords(content: string, existingTopics: any[]): string[] {
+    const contentLower = content.toLowerCase();
+    const matchedTopicIds: string[] = [];
+
+    for (const topic of existingTopics) {
+      const keywords = topic.keywords || [];
+      const matches = keywords.filter((kw: string) => 
+        contentLower.includes(kw.toLowerCase())
+      );
+      
+      if (matches.length > 0) {
+        matchedTopicIds.push(topic.id);
+      }
+    }
+
+    return matchedTopicIds;
+  }
+
+  /**
+   * Extract simple entities using regex (no AI)
+   */
+  private extractSimpleEntities(content: string): Array<{
+    type: string;
+    value: string;
+    context: string;
+    metadata?: any;
+  }> {
+    const entities: Array<{
+      type: string;
+      value: string;
+      context: string;
+      metadata?: any;
+    }> = [];
+
+    // Extract numbers with units
+    const numberRegex = /(\d+(?:\.\d+)?)\s*(years?|months?|days?|°C|°F|%|kg|mg|ml)/gi;
+    let match;
+    while ((match = numberRegex.exec(content)) !== null) {
+      const start = Math.max(0, match.index - 50);
+      const end = Math.min(content.length, match.index + match[0].length + 50);
+      entities.push({
+        type: "number",
+        value: match[1],
+        context: content.substring(start, end),
+        metadata: { unit: match[2] },
+      });
+    }
+
+    // Extract dates
+    const dateRegex = /\b(\d{4}[-/]\d{2}[-/]\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/g;
+    while ((match = dateRegex.exec(content)) !== null) {
+      const start = Math.max(0, match.index - 50);
+      const end = Math.min(content.length, match.index + match[0].length + 50);
+      entities.push({
+        type: "date",
+        value: match[1],
+        context: content.substring(start, end),
+      });
+    }
+
+    // Extract regulations (ISO, Article, etc.)
+    const regRegex = /\b(ISO\s+\d+(?::\d+)?|Article\s+\d+(?:\.\d+)?|Section\s+\d+)\b/gi;
+    while ((match = regRegex.exec(content)) !== null) {
+      const start = Math.max(0, match.index - 50);
+      const end = Math.min(content.length, match.index + match[0].length + 50);
+      entities.push({
+        type: "regulation",
+        value: match[1],
+        context: content.substring(start, end),
+      });
+    }
+
+    return entities;
   }
 
   /**
