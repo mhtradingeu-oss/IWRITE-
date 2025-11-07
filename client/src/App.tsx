@@ -3,25 +3,60 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { LanguageProvider } from "@/components/LanguageProvider";
+import { AppSidebar } from "@/components/AppSidebar";
+import { Header } from "@/components/Header";
+import Dashboard from "@/pages/Dashboard";
+import Documents from "@/pages/Documents";
+import DocumentEditor from "@/pages/DocumentEditor";
+import Uploads from "@/pages/Uploads";
+import Templates from "@/pages/Templates";
+import StyleProfiles from "@/pages/StyleProfiles";
+import Archive from "@/pages/Archive";
 import NotFound from "@/pages/not-found";
 
 function Router() {
   return (
     <Switch>
-      {/* Add pages below */}
-      {/* <Route path="/" component={Home}/> */}
-      {/* Fallback to 404 */}
+      <Route path="/" component={Dashboard} />
+      <Route path="/documents" component={Documents} />
+      <Route path="/documents/:id" component={DocumentEditor} />
+      <Route path="/uploads" component={Uploads} />
+      <Route path="/templates" component={Templates} />
+      <Route path="/style-profiles" component={StyleProfiles} />
+      <Route path="/archive" component={Archive} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
 function App() {
+  const style = {
+    "--sidebar-width": "20rem",
+    "--sidebar-width-icon": "4rem",
+  };
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Router />
+        <ThemeProvider>
+          <LanguageProvider>
+            <SidebarProvider style={style as React.CSSProperties}>
+              <div className="flex h-screen w-full">
+                <AppSidebar />
+                <div className="flex flex-col flex-1 overflow-hidden">
+                  <Header />
+                  <main className="flex-1 overflow-auto bg-background">
+                    <Router />
+                  </main>
+                </div>
+              </div>
+              <Toaster />
+            </SidebarProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
