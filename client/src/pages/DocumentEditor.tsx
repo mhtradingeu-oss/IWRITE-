@@ -159,7 +159,7 @@ export default function DocumentEditor() {
     content: "",
   });
 
-  const { data: document, isLoading } = useQuery<Document>({
+  const { data: doc, isLoading } = useQuery<Document>({
     queryKey: [`/api/documents/${params?.id}`],
     enabled: !!params?.id,
   });
@@ -175,13 +175,13 @@ export default function DocumentEditor() {
   });
 
   useEffect(() => {
-    if (document) {
+    if (doc) {
       setFormData({
-        title: document.title,
-        content: document.content,
+        title: doc.title,
+        content: doc.content,
       });
     }
-  }, [document]);
+  }, [doc]);
 
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -245,47 +245,42 @@ export default function DocumentEditor() {
 
   const exportMutation = useMutation({
     mutationFn: async (format: "md" | "docx" | "pdf") => {
-      try {
-        const response = await fetch(`/api/documents/${params?.id}/export`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ format }),
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-          throw new Error(errorData.error || "Export failed");
-        }
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        
-        const contentDisposition = response.headers.get("Content-Disposition");
-        const filename = contentDisposition?.match(/filename="([^"]+)"/)?.[1] || `document.${format}`;
-        a.download = filename;
-        
-        document.body.appendChild(a);
-        a.click();
-        
-        // Small delay to ensure download starts before cleanup
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      } catch (error) {
-        console.error("Export error:", error);
-        throw error;
+      // Trigger the export API call
+      const response = await fetch(`/api/documents/${params?.id}/export`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Export failed");
       }
+
+      // Create blob and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      
+      const contentDisposition = response.headers.get("Content-Disposition");
+      const filename = contentDisposition?.match(/filename="([^"]+)"/)?.[1] || `document.${format}`;
+      link.download = filename;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      return { format };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
-        title: "Export successful",
-        description: "Your document has been exported.",
+        title: t.export + " " + t.status.passed,
+        description: `Document exported successfully as ${data.format.toUpperCase()}`,
       });
     },
-    onError: () => {
+    onError: (error) => {
+      console.error("Export error:", error);
       toast({
         title: "Export failed",
         description: "There was an error exporting your document.",
@@ -314,7 +309,7 @@ export default function DocumentEditor() {
     );
   }
 
-  if (!document) {
+  if (!doc) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-6">
         <p className="text-muted-foreground">Document not found</p>
