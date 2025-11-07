@@ -508,7 +508,7 @@ export function registerRoutes(app: Express) {
         }
 
         // Upload to object storage if bucket is available, otherwise store in memory
-        let storageUrl = "";
+        let filePath = "";
         if (bucket) {
           try {
             const fileName = `${Date.now()}-${file.originalname}`;
@@ -516,15 +516,15 @@ export function registerRoutes(app: Express) {
             await blob.save(file.buffer, {
               contentType: file.mimetype,
             });
-            storageUrl = `gs://${process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID}/${process.env.PRIVATE_OBJECT_DIR || ".private"}/${fileName}`;
+            filePath = `gs://${process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID}/${process.env.PRIVATE_OBJECT_DIR || ".private"}/${fileName}`;
           } catch (error) {
             console.error("Error uploading to object storage:", error);
             // Fall back to in-memory storage
-            storageUrl = `memory://${Date.now()}-${file.originalname}`;
+            filePath = `memory://${Date.now()}-${file.originalname}`;
           }
         } else {
           // Development mode: store reference in memory
-          storageUrl = `memory://${Date.now()}-${file.originalname}`;
+          filePath = `memory://${Date.now()}-${file.originalname}`;
         }
 
         // Determine file type category
@@ -538,7 +538,7 @@ export function registerRoutes(app: Express) {
         const uploadedFile = await storage.createUploadedFile({
           filename: file.originalname,
           fileType,
-          storageUrl: storageUrl || undefined,
+          filePath: filePath,
           extractedContent: extractedContent || undefined,
         });
 
@@ -560,9 +560,9 @@ export function registerRoutes(app: Express) {
       }
 
       // Delete from object storage if exists
-      if (file.storageUrl && bucket) {
+      if (file.filePath && bucket) {
         try {
-          const fileName = file.storageUrl.split("/").pop();
+          const fileName = file.filePath.split("/").pop();
           if (fileName) {
             await bucket.file(`${process.env.PRIVATE_OBJECT_DIR || ".private"}/${fileName}`).delete();
           }
