@@ -36,7 +36,7 @@ import {
 import { randomUUID } from "crypto";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Documents
@@ -80,6 +80,7 @@ export interface IStorage {
   getAllDocumentChunks(): Promise<DocumentChunk[]>;
   getChunksByDocument(documentId: string): Promise<DocumentChunk[]>;
   getChunksByFile(fileId: string): Promise<DocumentChunk[]>;
+  getChunksByTopic(topicId: string, limit?: number): Promise<DocumentChunk[]>;
   createDocumentChunk(chunk: InsertDocumentChunk): Promise<DocumentChunk>;
   deleteDocumentChunk(id: string): Promise<boolean>;
 
@@ -109,6 +110,7 @@ export interface IStorage {
   getEntity(id: string): Promise<Entity | undefined>;
   getEntitiesByChunk(chunkId: string): Promise<Entity[]>;
   getEntitiesByChunks(chunkIds: string[]): Promise<Entity[]>;
+  getEntitiesByTopic(topicId: string, limit?: number): Promise<Entity[]>;
   createEntity(entity: InsertEntity): Promise<Entity>;
   deleteEntity(id: string): Promise<boolean>;
 }
@@ -328,6 +330,7 @@ export class MemStorage implements IStorage {
   async getAllDocumentChunks(): Promise<DocumentChunk[]> { return []; }
   async getChunksByDocument(): Promise<DocumentChunk[]> { return []; }
   async getChunksByFile(): Promise<DocumentChunk[]> { return []; }
+  async getChunksByTopic(): Promise<DocumentChunk[]> { return []; }
   async createDocumentChunk(): Promise<DocumentChunk> { throw new Error("Not implemented"); }
   async deleteDocumentChunk(): Promise<boolean> { return false; }
   async getTopic(): Promise<Topic | undefined> { return undefined; }
@@ -349,6 +352,7 @@ export class MemStorage implements IStorage {
   async getEntity(): Promise<Entity | undefined> { return undefined; }
   async getEntitiesByChunk(): Promise<Entity[]> { return []; }
   async getEntitiesByChunks(): Promise<Entity[]> { return []; }
+  async getEntitiesByTopic(): Promise<Entity[]> { return []; }
   async createEntity(): Promise<Entity> { throw new Error("Not implemented"); }
   async deleteEntity(): Promise<boolean> { return false; }
 }
@@ -546,6 +550,40 @@ export class DbStorage implements IStorage {
       .orderBy(documentChunks.chunkIndex);
   }
 
+  async getChunksByTopic(topicId: string, limit?: number): Promise<DocumentChunk[]> {
+    // Get all document-topic links for this topic
+    const documentTopicLinks = await this.db
+      .select()
+      .from(documentTopics)
+      .where(eq(documentTopics.topicId, topicId));
+    
+    // Get unique file IDs
+    const fileIdsSet = new Set(
+      documentTopicLinks
+        .map(dt => dt.uploadedFileId)
+        .filter((id): id is string => id !== null && id !== undefined)
+    );
+    const fileIds = Array.from(fileIdsSet);
+    
+    if (fileIds.length === 0) {
+      return [];
+    }
+
+    // Get chunks for these files with limit
+    let query = this.db
+      .select()
+      .from(documentChunks)
+      .where(inArray(documentChunks.uploadedFileId, fileIds))
+      .orderBy(documentChunks.createdAt);
+    
+    // Apply limit if provided
+    if (limit && limit > 0) {
+      query = query.limit(limit) as any;
+    }
+    
+    return await query;
+  }
+
   async createDocumentChunk(chunk: InsertDocumentChunk): Promise<DocumentChunk> {
     const data: typeof documentChunks.$inferInsert = {
       ...chunk,
@@ -697,6 +735,51 @@ export class DbStorage implements IStorage {
       chunkIds.map(id => this.getEntitiesByChunk(id))
     );
     return results.flat();
+  }
+
+  async getEntitiesByTopic(topicId: string, limit?: number): Promise<Entity[]> {
+    // CRITICAL: Only fetch chunk IDs (not full chunks with content) to prevent OOM
+    const documentTopicLinks = await this.db
+      .select()
+      .from(documentTopics)
+      .where(eq(documentTopics.topicId, topicId));
+    
+    const fileIdsSet = new Set(
+      documentTopicLinks
+        .map(dt => dt.uploadedFileId)
+        .filter((id): id is string => id !== null && id !== undefined)
+    );
+    const fileIds = Array.from(fileIdsSet);
+    
+    if (fileIds.length === 0) {
+      return [];
+    }
+
+    // Get only chunk IDs (not full chunks) to avoid loading large content
+    const chunkIdResults = await this.db
+      .select({ id: documentChunks.id })
+      .from(documentChunks)
+      .where(inArray(documentChunks.uploadedFileId, fileIds));
+    
+    const chunkIds = chunkIdResults.map(c => c.id);
+    
+    if (chunkIds.length === 0) {
+      return [];
+    }
+
+    // Get entities for these chunks with limit
+    let query = this.db
+      .select()
+      .from(entities)
+      .where(inArray(entities.chunkId, chunkIds))
+      .orderBy(entities.createdAt);
+    
+    // Apply limit if provided
+    if (limit && limit > 0) {
+      query = query.limit(limit) as any;
+    }
+    
+    return await query;
   }
 
   async createEntity(entity: InsertEntity): Promise<Entity> {

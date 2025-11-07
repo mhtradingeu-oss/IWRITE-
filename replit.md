@@ -62,6 +62,21 @@ Preferred communication style: Simple, everyday language.
 - CSV/XLSX processing using xlsx library
 - Support for images (PNG, JPEG, GIF, WebP)
 
+**Topic Intelligence System** (Nov 2025)
+- Simplified keyword-based approach (no AI embeddings to avoid memory constraints)
+- Document chunking with configurable size (default 800 chars, max 200 chunks per file)
+- Entity extraction: numbers, dates, medical terms, product codes, regulations
+- Topic classification based on keyword matching
+- Multi-source document synthesis via Topic Packs
+- Keyword-based search across all topics and documents
+- Memory protection: 10MB file limit, 500KB text, 1000 rows for CSV/XLSX
+- **OOM Fix (Nov 7, 2025)**: Added limit support to `getChunksByTopic()` and `getEntitiesByTopic()` storage methods
+  - API endpoints now respect `?limit=N` query parameter
+  - `getEntitiesByTopic()` only fetches chunk IDs (not full content) to prevent memory bloat
+  - Frontend limits: 50 chunks, 100 entities per topic
+  - Uses Drizzle ORM `inArray()` helper for efficient SQL queries
+- **XSS Fix (Nov 7, 2025)**: TopicSearch now escapes HTML before applying search highlights to prevent script injection
+
 **Document Export**
 - Multi-format export system (Markdown ✅, DOCX ✅, PDF pending)
 - Markdown export with metadata and template support - fully operational
@@ -86,6 +101,12 @@ Preferred communication style: Simple, everyday language.
 - **uploadedFiles**: Metadata and storage URLs for uploaded files
 - **documentVersions**: Version history for document changes
 - **qaCheckResults**: Quality assurance check results with issue tracking
+- **Topic Intelligence tables**:
+  - **topics**: Topic definitions with name, description, keywords
+  - **documentTopics**: Links uploaded files to topics for organization
+  - **documentChunks**: Text chunks from uploaded files with metadata
+  - **entities**: Extracted entities (numbers, dates, medical terms, product codes) from chunks
+  - **topicPacks**: Pre-built topic packages for multi-source document synthesis
 
 **Storage Strategy**
 - PostgreSQL database for all persistent data (documents, templates, style profiles, versions, QA results)

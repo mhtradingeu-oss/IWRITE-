@@ -754,4 +754,26 @@ export async function registerRoutes(app: Express) {
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Get chunks for a topic (with limit to prevent OOM)
+  app.get("/api/chunks/topic/:topicId", async (req: Request, res: Response) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const chunks = await storage.getChunksByTopic(req.params.topicId, limit);
+      res.json(chunks);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get entities for a topic (with limit to prevent OOM)
+  app.get("/api/entities/topic/:topicId", async (req: Request, res: Response) => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined;
+      const entities = await storage.getEntitiesByTopic(req.params.topicId, limit);
+      res.json(entities);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
 }

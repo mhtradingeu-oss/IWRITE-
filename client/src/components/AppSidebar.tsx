@@ -1,4 +1,4 @@
-import { Home, FileText, Upload, Layout, Wand2, Settings, Archive, FolderOpen } from "lucide-react";
+import { Home, FileText, Upload, Layout, Wand2, Settings, Archive, FolderOpen, Tag, Search } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import {
   Sidebar,
@@ -26,6 +26,8 @@ const translations = {
     settings: "Settings",
     management: "Management",
     archive: "Archive",
+    topics: "Topics",
+    search: "Search",
     library: "Library",
   },
   ar: {
@@ -38,6 +40,8 @@ const translations = {
     settings: "الإعدادات",
     management: "الإدارة",
     archive: "الأرشيف",
+    topics: "المواضيع",
+    search: "البحث",
     library: "المكتبة",
   },
   de: {
@@ -50,6 +54,8 @@ const translations = {
     settings: "Einstellungen",
     management: "Verwaltung",
     archive: "Archiv",
+    topics: "Themen",
+    search: "Suche",
     library: "Bibliothek",
   },
 };
@@ -86,6 +92,16 @@ const managementItems = [
 ];
 
 const libraryItems = [
+  {
+    title: "search",
+    url: "/search",
+    icon: Search,
+  },
+  {
+    title: "topics",
+    url: "/topics",
+    icon: Tag,
+  },
   {
     title: "archive",
     url: "/archive",

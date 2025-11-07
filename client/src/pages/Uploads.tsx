@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Upload as UploadIcon, FileText, File, Image, Table, Trash2, Download } from "lucide-react";
+import { Upload as UploadIcon, FileText, File, Image, Table, Trash2, Download, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +24,10 @@ const translations = {
     delete: "Delete",
     download: "Download",
     view: "View",
+    process: "Process",
+    processing: "Processing...",
+    processSuccess: "File processed successfully",
+    processError: "Failed to process file",
   },
   ar: {
     uploads: "الملفات المرفوعة",
@@ -38,6 +42,10 @@ const translations = {
     delete: "حذف",
     download: "تنزيل",
     view: "عرض",
+    process: "معالجة",
+    processing: "جاري المعالجة...",
+    processSuccess: "تمت معالجة الملف بنجاح",
+    processError: "فشلت معالجة الملف",
   },
   de: {
     uploads: "Datei-Uploads",
@@ -52,6 +60,10 @@ const translations = {
     delete: "Löschen",
     download: "Herunterladen",
     view: "Ansehen",
+    process: "Verarbeiten",
+    processing: "Verarbeitung...",
+    processSuccess: "Datei erfolgreich verarbeitet",
+    processError: "Verarbeitung fehlgeschlagen",
   },
 };
 
@@ -110,6 +122,36 @@ export default function Uploads() {
       toast({
         title: "File deleted",
         description: "The file has been removed.",
+      });
+    },
+  });
+
+  const processMutation = useMutation({
+    mutationFn: async (fileId: string) => {
+      const response = await fetch(`/api/topic-intelligence/process-file/${fileId}`, {
+        method: "POST",
+      });
+      
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+      
+      return response.json();
+    },
+    onSuccess: (data, fileId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/uploads"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/topics"] });
+      toast({
+        title: t.processSuccess,
+        description: `Extracted ${data.chunks} chunks, ${data.topics.length} topics, ${data.entities} entities`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t.processError,
+        description: error.message || "An error occurred",
+        variant: "destructive",
       });
     },
   });
@@ -204,6 +246,17 @@ export default function Uploads() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
+                    <Button 
+                      variant="default" 
+                      size="sm"
+                      onClick={() => processMutation.mutate(upload.id)}
+                      disabled={processMutation.isPending}
+                      data-testid={`button-process-${upload.id}`}
+                      className="h-8"
+                    >
+                      <Sparkles className="h-3 w-3 mr-1" />
+                      {processMutation.isPending ? t.processing : t.process}
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-download-${upload.id}`}>
                       <Download className="h-4 w-4" />
                     </Button>

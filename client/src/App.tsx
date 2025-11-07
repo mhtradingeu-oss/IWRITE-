@@ -15,6 +15,9 @@ import Uploads from "@/pages/Uploads";
 import Templates from "@/pages/Templates";
 import StyleProfiles from "@/pages/StyleProfiles";
 import Archive from "@/pages/Archive";
+import Topics from "@/pages/Topics";
+import TopicPack from "@/pages/TopicPack";
+import TopicSearch from "@/pages/TopicSearch";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -27,6 +30,9 @@ function Router() {
       <Route path="/templates" component={Templates} />
       <Route path="/style-profiles" component={StyleProfiles} />
       <Route path="/archive" component={Archive} />
+      <Route path="/topics" component={Topics} />
+      <Route path="/topics/:id" component={TopicPack} />
+      <Route path="/search" component={TopicSearch} />
       <Route component={NotFound} />
     </Switch>
   );
