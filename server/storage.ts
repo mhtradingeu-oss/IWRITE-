@@ -11,8 +11,17 @@ import {
   type InsertDocumentVersion,
   type QACheckResult,
   type InsertQACheckResult,
+  documents,
+  templates,
+  styleProfiles,
+  uploadedFiles,
+  documentVersions,
+  qaCheckResults,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   // Documents
@@ -262,4 +271,169 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Database Storage Implementation
+export class DbStorage implements IStorage {
+  private db;
+
+  constructor() {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is required for DbStorage");
+    }
+    const sql = neon(process.env.DATABASE_URL);
+    this.db = drizzle(sql);
+  }
+
+  // Documents
+  async getDocument(id: string): Promise<Document | undefined> {
+    const result = await this.db.select().from(documents).where(eq(documents.id, id));
+    return result[0];
+  }
+
+  async getAllDocuments(): Promise<Document[]> {
+    return await this.db.select().from(documents).orderBy(desc(documents.createdAt));
+  }
+
+  async createDocument(doc: InsertDocument): Promise<Document> {
+    const result = await this.db.insert(documents).values(doc).returning();
+    return result[0];
+  }
+
+  async updateDocument(id: string, doc: Partial<InsertDocument>): Promise<Document | undefined> {
+    // Filter out undefined values to avoid unintended NULL writes
+    const updates = Object.fromEntries(
+      Object.entries(doc).filter(([_, value]) => value !== undefined)
+    );
+    const result = await this.db
+      .update(documents)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(documents.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteDocument(id: string): Promise<boolean> {
+    const result = await this.db.delete(documents).where(eq(documents.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Templates
+  async getTemplate(id: string): Promise<Template | undefined> {
+    const result = await this.db.select().from(templates).where(eq(templates.id, id));
+    return result[0];
+  }
+
+  async getAllTemplates(): Promise<Template[]> {
+    return await this.db.select().from(templates).orderBy(desc(templates.createdAt));
+  }
+
+  async createTemplate(template: InsertTemplate): Promise<Template> {
+    const result = await this.db.insert(templates).values(template).returning();
+    return result[0];
+  }
+
+  async updateTemplate(id: string, template: Partial<InsertTemplate>): Promise<Template | undefined> {
+    // Filter out undefined values to avoid unintended NULL writes
+    const updates = Object.fromEntries(
+      Object.entries(template).filter(([_, value]) => value !== undefined)
+    );
+    const result = await this.db
+      .update(templates)
+      .set(updates)
+      .where(eq(templates.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTemplate(id: string): Promise<boolean> {
+    const result = await this.db.delete(templates).where(eq(templates.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Style Profiles
+  async getStyleProfile(id: string): Promise<StyleProfile | undefined> {
+    const result = await this.db.select().from(styleProfiles).where(eq(styleProfiles.id, id));
+    return result[0];
+  }
+
+  async getAllStyleProfiles(): Promise<StyleProfile[]> {
+    return await this.db.select().from(styleProfiles).orderBy(desc(styleProfiles.createdAt));
+  }
+
+  async createStyleProfile(profile: InsertStyleProfile): Promise<StyleProfile> {
+    const result = await this.db.insert(styleProfiles).values(profile).returning();
+    return result[0];
+  }
+
+  async updateStyleProfile(id: string, profile: Partial<InsertStyleProfile>): Promise<StyleProfile | undefined> {
+    // Filter out undefined values to avoid unintended NULL writes
+    const updates = Object.fromEntries(
+      Object.entries(profile).filter(([_, value]) => value !== undefined)
+    );
+    const result = await this.db
+      .update(styleProfiles)
+      .set(updates)
+      .where(eq(styleProfiles.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteStyleProfile(id: string): Promise<boolean> {
+    const result = await this.db.delete(styleProfiles).where(eq(styleProfiles.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Uploaded Files
+  async getUploadedFile(id: string): Promise<UploadedFile | undefined> {
+    const result = await this.db.select().from(uploadedFiles).where(eq(uploadedFiles.id, id));
+    return result[0];
+  }
+
+  async getAllUploadedFiles(): Promise<UploadedFile[]> {
+    return await this.db.select().from(uploadedFiles).orderBy(desc(uploadedFiles.uploadedAt));
+  }
+
+  async createUploadedFile(file: InsertUploadedFile): Promise<UploadedFile> {
+    const result = await this.db.insert(uploadedFiles).values(file).returning();
+    return result[0];
+  }
+
+  async deleteUploadedFile(id: string): Promise<boolean> {
+    const result = await this.db.delete(uploadedFiles).where(eq(uploadedFiles.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Document Versions
+  async getDocumentVersions(documentId: string): Promise<DocumentVersion[]> {
+    return await this.db
+      .select()
+      .from(documentVersions)
+      .where(eq(documentVersions.documentId, documentId))
+      .orderBy(desc(documentVersions.version));
+  }
+
+  async getAllVersions(): Promise<DocumentVersion[]> {
+    return await this.db.select().from(documentVersions).orderBy(desc(documentVersions.createdAt));
+  }
+
+  async createDocumentVersion(version: InsertDocumentVersion): Promise<DocumentVersion> {
+    const result = await this.db.insert(documentVersions).values(version).returning();
+    return result[0];
+  }
+
+  // QA Checks
+  async getQACheckResults(documentId: string): Promise<QACheckResult[]> {
+    return await this.db
+      .select()
+      .from(qaCheckResults)
+      .where(eq(qaCheckResults.documentId, documentId))
+      .orderBy(desc(qaCheckResults.createdAt));
+  }
+
+  async createQACheckResult(result: InsertQACheckResult): Promise<QACheckResult> {
+    const qr = await this.db.insert(qaCheckResults).values(result).returning();
+    return qr[0];
+  }
+}
+
+// Use DbStorage for production, MemStorage for testing
+export const storage = process.env.DATABASE_URL ? new DbStorage() : new MemStorage();
