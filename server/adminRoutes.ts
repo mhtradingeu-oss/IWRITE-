@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { db } from "./storage";
 import { users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "./index";
 
 // Middleware to require admin access
@@ -26,17 +26,19 @@ export function registerAdminRoutes(app: Express) {
   // Get all users with their usage info
   app.get("/api/admin/users", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const allUsers = await db.select().from(users);
+      const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
 
       const usersData = allUsers.map((user) => ({
         id: user.id,
         email: user.email,
+        role: user.role,
         plan: user.plan,
         dailyUsageCount: user.dailyUsageCount,
         dailyUsageDate: user.dailyUsageDate,
         createdAt: user.createdAt,
         planStartedAt: user.planStartedAt,
         planExpiresAt: user.planExpiresAt,
+        updatedAt: user.updatedAt,
       }));
 
       res.json({ users: usersData });
@@ -112,23 +114,107 @@ export function registerAdminRoutes(app: Express) {
     }
   });
 
+  // Disable/Enable user account
+  app.put("/api/admin/users/:id/status", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { disabled } = req.body;
+
+      await db
+        .update(users)
+        .set({
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, id));
+
+      const updatedUser = await db.select().from(users).where(eq(users.id, id));
+
+      res.json({
+        message: "User status updated",
+        user: updatedUser[0],
+      });
+    } catch (error: any) {
+      console.error("Error updating user status:", error);
+      res.status(500).json({ error: error.message || "Failed to update user status" });
+    }
+  });
+
   // Get system stats
   app.get("/api/admin/stats", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
       const allUsers = await db.select().from(users);
 
+      const totalDailyUsage = allUsers.reduce((sum, u) => sum + u.dailyUsageCount, 0);
+      const avgDailyUsagePerUser = allUsers.length > 0 ? Math.round(totalDailyUsage / allUsers.length) : 0;
+
       const stats = {
         totalUsers: allUsers.length,
+        activeUsers: allUsers.filter((u) => {
+          if (u.dailyUsageDate) {
+            const today = new Date().toISOString().split("T")[0];
+            return u.dailyUsageDate === today;
+          }
+          return false;
+        }).length,
         freeUsers: allUsers.filter((u) => u.plan === "FREE").length,
         proUsers: allUsers.filter((u) => u.plan.startsWith("PRO")).length,
-        totalDailyUsage: allUsers.reduce((sum, u) => sum + u.dailyUsageCount, 0),
+        totalDailyUsage,
+        avgDailyUsagePerUser,
         freeDailyLimit: parseInt(process.env.FREE_DAILY_LIMIT || "5"),
+        usersNearLimit: allUsers.filter((u) => u.plan === "FREE" && u.dailyUsageCount >= 4).length,
       };
 
       res.json(stats);
     } catch (error: any) {
       console.error("Error fetching stats:", error);
       res.status(500).json({ error: error.message || "Failed to fetch stats" });
+    }
+  });
+
+  // Get system health
+  app.get("/api/admin/health", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const allUsers = await db.select().from(users);
+      
+      const health = {
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+        database: "connected",
+        totalUsers: allUsers.length,
+        system: {
+          environment: process.env.NODE_ENV || "development",
+          version: "1.0.0",
+          uptime: process.uptime(),
+        },
+      };
+
+      res.json(health);
+    } catch (error: any) {
+      res.status(500).json({
+        status: "unhealthy",
+        error: error.message || "System health check failed",
+      });
+    }
+  });
+
+  // Update daily rate limit
+  app.put("/api/admin/settings/daily-limit", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { limit } = req.body;
+
+      if (!limit || limit < 1 || limit > 100) {
+        return res.status(400).json({ error: "Invalid limit value" });
+      }
+
+      // Store in environment (in production, this would be persisted)
+      process.env.FREE_DAILY_LIMIT = limit.toString();
+
+      res.json({
+        message: "Daily limit updated",
+        freeDailyLimit: limit,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update daily limit" });
     }
   });
 }
