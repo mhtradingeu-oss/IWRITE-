@@ -18,8 +18,8 @@ export default function Login() {
   const demoAccounts = [
     {
       label: "FREE User",
-      email: "test@example.com",
-      password: "Test1234",
+      email: "free@example.com",
+      password: "FreeUser1234",
       icon: User,
       badge: "5 AI/day",
       color: "bg-blue-50 dark:bg-blue-950/30",
@@ -27,8 +27,8 @@ export default function Login() {
     },
     {
       label: "PRO User",
-      email: "mhtrading@gmail.com",
-      password: "test@123",
+      email: "pro@example.com",
+      password: "ProUser1234",
       icon: Zap,
       badge: "Unlimited",
       color: "bg-purple-50 dark:bg-purple-950/30",
@@ -36,8 +36,8 @@ export default function Login() {
     },
     {
       label: "Admin",
-      email: "mhtrading@gmail.com",
-      password: "test@123",
+      email: "admin@example.com",
+      password: "Admin1234",
       icon: Crown,
       badge: "Full Access",
       color: "bg-amber-50 dark:bg-amber-950/30",
