@@ -30,18 +30,31 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Loader2,
   Shield,
   Users,
   TrendingUp,
   Activity,
-  Zap,
-  Brain,
-  AlertCircle,
   CheckCircle2,
-  BarChart3,
+  AlertCircle,
+  Brain,
   Send,
+  Download,
+  Wrench,
+  Database,
+  Copy,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 
@@ -62,6 +75,7 @@ interface Stats {
   activeUsers: number;
   freeUsers: number;
   proUsers: number;
+  adminUsers: number;
   totalDailyUsage: number;
   avgDailyUsagePerUser: number;
   freeDailyLimit: number;
@@ -71,6 +85,8 @@ interface Stats {
 export default function Admin() {
   const { toast } = useToast();
   const [searchEmail, setSearchEmail] = useState<string>("");
+  const [planFilter, setPlanFilter] = useState<string>("all");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
   const [newDailyLimit, setNewDailyLimit] = useState<string>("");
   const [aiPrompt, setAiPrompt] = useState<string>("");
   const [aiResponse, setAiResponse] = useState<string>("");
@@ -81,8 +97,7 @@ export default function Admin() {
     queryFn: async () => {
       const response = await fetch("/auth/me", { credentials: "include" });
       if (!response.ok) return null;
-      const data = await response.json();
-      return data.user;
+      return response.json().then((data) => data.user);
     },
   });
 
@@ -92,10 +107,9 @@ export default function Admin() {
     queryFn: async () => {
       const response = await fetch("/api/admin/users", { credentials: "include" });
       if (!response.ok) throw new Error("Failed to fetch users");
-      const data = await response.json();
-      return data.users || [];
+      return response.json().then((data) => data.users || []);
     },
-    enabled: !!currentUser,
+    enabled: !!currentUser?.role === "admin",
   });
 
   // Fetch system stats
@@ -106,18 +120,18 @@ export default function Admin() {
       if (!response.ok) throw new Error("Failed to fetch stats");
       return response.json();
     },
-    enabled: !!currentUser,
+    enabled: !!currentUser?.role === "admin",
   });
 
-  // Fetch system health
-  const { data: health } = useQuery({
-    queryKey: ["/api/admin/health"],
+  // Fetch maintenance mode status
+  const { data: maintenanceStatus, refetch: refetchMaintenance } = useQuery({
+    queryKey: ["/api/admin/maintenance"],
     queryFn: async () => {
-      const response = await fetch("/api/admin/health", { credentials: "include" });
-      if (!response.ok) throw new Error("Failed to fetch health");
+      const response = await fetch("/api/admin/maintenance", { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch maintenance status");
       return response.json();
     },
-    enabled: !!currentUser,
+    enabled: !!currentUser?.role === "admin",
   });
 
   // Update plan mutation
@@ -196,6 +210,31 @@ export default function Admin() {
     },
   });
 
+  // Toggle maintenance mode
+  const toggleMaintenanceMutation = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const response = await fetch("/api/admin/maintenance", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to update maintenance mode");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Success", description: "Maintenance mode updated" });
+      refetchMaintenance();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // AI Insights mutation
   const aiInsightsMutation = useMutation({
     mutationFn: async () => {
@@ -204,7 +243,7 @@ export default function Admin() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: aiPrompt,
-          context: { stats, usersCount: users.length, usersNearLimit: stats?.usersNearLimit || 0 },
+          context: { stats, usersCount: users.length },
         }),
         credentials: "include",
       });
@@ -225,9 +264,7 @@ export default function Admin() {
     },
   });
 
-  const isAdmin =
-    currentUser?.email === import.meta.env.VITE_ADMIN_EMAIL ||
-    currentUser?.email === "mhtrading@gmail.com";
+  const isAdmin = currentUser?.role === "admin";
 
   if (!isAdmin) {
     return (
@@ -237,7 +274,7 @@ export default function Admin() {
             <Shield className="w-12 h-12 mx-auto text-destructive mb-4" />
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              You do not have permission to access the admin panel.
+              Admin access required. Contact system administrator.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -245,30 +282,40 @@ export default function Admin() {
     );
   }
 
-  // Filter users based on search
-  const filteredUsers = users.filter((user) =>
-    user.email.toLowerCase().includes(searchEmail.toLowerCase())
-  );
+  // Filter users based on search and filters
+  const filteredUsers = users.filter((user) => {
+    const matchEmail = user.email.toLowerCase().includes(searchEmail.toLowerCase());
+    const matchPlan = planFilter === "all" || user.plan === planFilter;
+    const matchRole = roleFilter === "all" || user.role === roleFilter;
+    return matchEmail && matchPlan && matchRole;
+  });
 
-  // Predefined AI prompts
+  // Get top users by usage
+  const topUsers = [...users]
+    .sort((a, b) => b.dailyUsageCount - a.dailyUsageCount)
+    .slice(0, 3);
+
+  // AI prompt templates
   const aiPrompts = [
     {
       label: "Summarize activity",
-      prompt: "Provide a brief summary of today's user activity and AI usage patterns.",
+      prompt: "Provide a brief summary of today's user activity and AI usage patterns. Include key metrics and trends.",
     },
     {
-      label: "Suggest upgrades",
-      prompt: "Which users should I consider reaching out to for PRO plan upgrades based on their usage patterns?",
+      label: "Identify heavy users",
+      prompt: "Who are the top users consuming AI operations today? Should any of them be offered a PRO plan upgrade?",
+    },
+    {
+      label: "Suggest optimizations",
+      prompt: "Based on current usage patterns, what recommendations would you make to improve system performance and user satisfaction?",
     },
     {
       label: "Check anomalies",
-      prompt: "Are there any unusual patterns or anomalies in today's usage data that I should be aware of?",
-    },
-    {
-      label: "Optimize limits",
-      prompt: "Based on current usage, should I adjust the FREE daily limit? What would be optimal?",
+      prompt: "Are there any unusual patterns or anomalies in today's usage data that need investigation?",
     },
   ];
+
+  const pgDumpCommand = "pg_dump $DATABASE_URL > backup-$(date +%F).sql";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-muted p-4 sm:p-8">
@@ -284,79 +331,91 @@ export default function Admin() {
           </p>
         </div>
 
-        {/* Tabs Navigation */}
+        {/* Main Tabs */}
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4" data-testid="admin-tabs">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="users">Users</TabsTrigger>
-            <TabsTrigger value="limits">Usage & Limits</TabsTrigger>
+            <TabsTrigger value="operations">Operations</TabsTrigger>
             <TabsTrigger value="ai">AI Assistant</TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
+          {/* ============ OVERVIEW TAB ============ */}
           <TabsContent value="overview" className="space-y-6">
             {/* Stats Cards */}
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
               {statsLoading ? (
                 <>
-                  <Skeleton className="h-32" />
-                  <Skeleton className="h-32" />
-                  <Skeleton className="h-32" />
-                  <Skeleton className="h-32" />
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <Skeleton key={i} className="h-24" />
+                  ))}
                 </>
               ) : stats ? (
                 <>
                   <Card className="hover-elevate">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <Users className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold">{stats.totalUsers}</div>
+                      <div className="text-2xl font-bold">{stats.totalUsers}</div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="hover-elevate">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">FREE Users</CardTitle>
+                      <Activity className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.freeUsers}</div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {stats.freeUsers} free, {stats.proUsers} pro
+                        {stats.totalUsers > 0
+                          ? Math.round((stats.freeUsers / stats.totalUsers) * 100)
+                          : 0}
+                        %
                       </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="hover-elevate">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">PRO Users</CardTitle>
+                      <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.proUsers}</div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {stats.totalUsers > 0
+                          ? Math.round((stats.proUsers / stats.totalUsers) * 100)
+                          : 0}
+                        %
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="hover-elevate">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">Admin Users</CardTitle>
+                      <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{stats.adminUsers}</div>
                     </CardContent>
                   </Card>
 
                   <Card className="hover-elevate">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                       <CardTitle className="text-sm font-medium">Active Today</CardTitle>
-                      <Activity className="h-4 w-4 text-green-600 dark:text-green-400" />
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     </CardHeader>
                     <CardContent>
-                      <div className="text-3xl font-bold">{stats.activeUsers}</div>
+                      <div className="text-2xl font-bold">{stats.activeUsers}</div>
                       <p className="text-xs text-muted-foreground mt-1">
                         {stats.totalUsers > 0
                           ? Math.round((stats.activeUsers / stats.totalUsers) * 100)
                           : 0}
-                        % engagement
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="hover-elevate">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Daily Usage</CardTitle>
-                      <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold">{stats.totalDailyUsage}</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Avg {stats.avgDailyUsagePerUser} per user
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="hover-elevate">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">Near Limit</CardTitle>
-                      <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-3xl font-bold">{stats.usersNearLimit}</div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Free users at 4+/{stats.freeDailyLimit} usage
+                        %
                       </p>
                     </CardContent>
                   </Card>
@@ -364,57 +423,156 @@ export default function Admin() {
               ) : null}
             </div>
 
-            {/* System Health */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>System Health</CardTitle>
-                    <CardDescription>Real-time system status</CardDescription>
+            {/* Usage & Limits Summary */}
+            {stats && (
+              <div className="grid sm:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Today's AI Usage</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between items-center pb-3 border-b">
+                      <span className="text-muted-foreground">Total Operations</span>
+                      <span className="font-bold text-2xl">{stats.totalDailyUsage}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Avg per User</span>
+                      <span className="font-semibold">{stats.avgDailyUsagePerUser}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">FREE Plan Limit</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex justify-between items-center pb-3 border-b">
+                      <span className="text-muted-foreground">Daily Limit</span>
+                      <span className="font-bold text-2xl">{stats.freeDailyLimit}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Users Near Limit</span>
+                      <Badge variant={stats.usersNearLimit > 0 ? "destructive" : "secondary"}>
+                        {stats.usersNearLimit}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Top Users */}
+            {topUsers.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Top Users Today</CardTitle>
+                  <CardDescription>Highest AI operation consumers</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {topUsers.map((user, idx) => (
+                      <div
+                        key={user.id}
+                        className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-semibold">
+                            {idx + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium">{user.email}</p>
+                            <p className="text-xs text-muted-foreground">
+                              <Badge variant="outline" className="mt-1">
+                                {user.plan}
+                              </Badge>
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-lg">{user.dailyUsageCount}</p>
+                          <p className="text-xs text-muted-foreground">operations</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  {health?.status === "healthy" ? (
-                    <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
-                  ) : (
-                    <AlertCircle className="h-6 w-6 text-destructive" />
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-1">Database</p>
-                    <p className="font-semibold flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      Connected
-                    </p>
-                  </div>
-                  <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground mb-1">API Status</p>
-                    <p className="font-semibold flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
-                      Operational
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
-          {/* Users Tab */}
+          {/* ============ USERS TAB ============ */}
           <TabsContent value="users" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Users Management</CardTitle>
-                <CardDescription>View and manage all users in the system</CardDescription>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <CardTitle>Users Management</CardTitle>
+                    <CardDescription>
+                      Manage user plans, reset usage, and monitor activity
+                    </CardDescription>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const link = document.createElement("a");
+                      link.href = "/api/admin/users/export";
+                      link.download = true;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    data-testid="button-export-users"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export CSV
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <Input
-                  placeholder="Search by email..."
-                  value={searchEmail}
-                  onChange={(e) => setSearchEmail(e.target.value)}
-                  data-testid="input-search-users"
-                />
 
+              <CardContent className="space-y-4">
+                {/* Search & Filters */}
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-xs mb-2 block">Search Email</Label>
+                    <Input
+                      placeholder="Search..."
+                      value={searchEmail}
+                      onChange={(e) => setSearchEmail(e.target.value)}
+                      data-testid="input-search-users"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-2 block">Filter by Plan</Label>
+                    <Select value={planFilter} onValueChange={setPlanFilter}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Plans</SelectItem>
+                        <SelectItem value="FREE">FREE</SelectItem>
+                        <SelectItem value="PRO_MONTHLY">PRO Monthly</SelectItem>
+                        <SelectItem value="PRO_YEARLY">PRO Yearly</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs mb-2 block">Filter by Role</Label>
+                    <Select value={roleFilter} onValueChange={setRoleFilter}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Roles</SelectItem>
+                        <SelectItem value="user">User</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Users Table */}
                 {usersLoading ? (
                   <div className="space-y-3">
                     {[1, 2, 3].map((i) => (
@@ -424,7 +582,7 @@ export default function Admin() {
                 ) : filteredUsers.length === 0 ? (
                   <p className="text-muted-foreground text-center py-8">No users found</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {filteredUsers.map((user) => (
                       <div
                         key={user.id}
@@ -441,10 +599,11 @@ export default function Admin() {
                               <Badge variant="outline">Admin</Badge>
                             )}
                             <span className="text-xs text-muted-foreground">
-                              Usage: {user.dailyUsageCount}
+                              Usage: {user.dailyUsageCount}/{stats?.freeDailyLimit || 5}
                             </span>
                           </div>
                         </div>
+
                         <Dialog>
                           <DialogTrigger asChild>
                             <Button size="sm" variant="outline" data-testid={`button-manage-${user.id}`}>
@@ -458,7 +617,7 @@ export default function Admin() {
                             </DialogHeader>
                             <div className="space-y-4">
                               <div>
-                                <Label className="mb-2 block">Plan</Label>
+                                <Label className="mb-2 block">Change Plan</Label>
                                 <Select
                                   value={user.plan}
                                   onValueChange={(plan) =>
@@ -471,27 +630,43 @@ export default function Admin() {
                                   </SelectTrigger>
                                   <SelectContent>
                                     <SelectItem value="FREE">FREE</SelectItem>
-                                    <SelectItem value="PRO_MONTHLY">PRO_MONTHLY</SelectItem>
-                                    <SelectItem value="PRO_YEARLY">PRO_YEARLY</SelectItem>
+                                    <SelectItem value="PRO_MONTHLY">PRO Monthly</SelectItem>
+                                    <SelectItem value="PRO_YEARLY">PRO Yearly</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
+
                               <div className="bg-muted p-4 rounded-lg">
-                                <p className="text-sm text-muted-foreground mb-2">
-                                  Daily Usage
+                                <p className="text-sm text-muted-foreground mb-3">
+                                  Daily Usage: <span className="font-bold">{user.dailyUsageCount}</span>
                                 </p>
-                                <p className="text-2xl font-bold mb-3">{user.dailyUsageCount}</p>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => resetUsageMutation.mutate(user.id)}
-                                  disabled={resetUsageMutation.isPending}
-                                >
-                                  {resetUsageMutation.isPending && (
-                                    <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                                  )}
-                                  Reset Usage
-                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="outline" className="w-full">
+                                      Reset Usage
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Reset Usage?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This will reset {user.email}'s daily usage count to 0.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <div className="flex gap-3">
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => resetUsageMutation.mutate(user.id)}
+                                        disabled={resetUsageMutation.isPending}
+                                      >
+                                        {resetUsageMutation.isPending && (
+                                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                                        )}
+                                        Reset
+                                      </AlertDialogAction>
+                                    </div>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </div>
                             </div>
                           </DialogContent>
@@ -504,18 +679,46 @@ export default function Admin() {
             </Card>
           </TabsContent>
 
-          {/* Usage & Limits Tab */}
-          <TabsContent value="limits" className="space-y-6">
+          {/* ============ OPERATIONS TAB ============ */}
+          <TabsContent value="operations" className="space-y-6">
+            {/* Maintenance Mode */}
             <Card>
               <CardHeader>
-                <CardTitle>Usage & Limits Configuration</CardTitle>
-                <CardDescription>Manage AI operation limits and view usage breakdown</CardDescription>
+                <CardTitle>Maintenance Mode</CardTitle>
+                <CardDescription>Control application availability for users</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Limit Settings */}
+              <CardContent>
+                <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
+                  <div>
+                    <p className="font-medium">Maintenance Mode</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {maintenanceStatus?.enabled
+                        ? "Regular users see maintenance page"
+                        : "Application is running normally"}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={maintenanceStatus?.enabled || false}
+                    onCheckedChange={(enabled) =>
+                      toggleMaintenanceMutation.mutate(enabled)
+                    }
+                    disabled={toggleMaintenanceMutation.isPending}
+                    data-testid="switch-maintenance"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Daily Limit Settings */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Usage Limits Configuration</CardTitle>
+                <CardDescription>Adjust FREE plan daily operation limit</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div>
-                  <Label className="mb-3 block font-semibold">FREE Daily Limit</Label>
-                  <div className="flex gap-2 mb-4">
+                  <Label className="mb-3 block">FREE Daily Limit</Label>
+                  <div className="flex gap-2">
                     <Input
                       type="number"
                       min="1"
@@ -531,9 +734,7 @@ export default function Admin() {
                           updateDailyLimitMutation.mutate(parseInt(newDailyLimit));
                         }
                       }}
-                      disabled={
-                        !newDailyLimit || updateDailyLimitMutation.isPending
-                      }
+                      disabled={!newDailyLimit || updateDailyLimitMutation.isPending}
                       data-testid="button-update-limit"
                     >
                       {updateDailyLimitMutation.isPending && (
@@ -542,40 +743,48 @@ export default function Admin() {
                       Update
                     </Button>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    Current limit: {stats?.freeDailyLimit} AI operations per day for FREE users
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Current limit: {stats?.freeDailyLimit} operations/day
                   </p>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* Usage Breakdown */}
-                {stats && (
-                  <div className="space-y-4 pt-4 border-t">
-                    <h3 className="font-semibold">Today's Usage Breakdown</h3>
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <div className="p-4 bg-muted rounded-lg">
-                        <p className="text-sm text-muted-foreground mb-1">Total Operations</p>
-                        <p className="text-2xl font-bold">{stats.totalDailyUsage}</p>
-                      </div>
-                      <div className="p-4 bg-muted rounded-lg">
-                        <p className="text-sm text-muted-foreground mb-1">FREE Users</p>
-                        <p className="text-2xl font-bold">{stats.freeUsers}</p>
-                      </div>
-                      <div className="p-4 bg-muted rounded-lg">
-                        <p className="text-sm text-muted-foreground mb-1">PRO Users</p>
-                        <p className="text-2xl font-bold">{stats.proUsers}</p>
-                      </div>
-                      <div className="p-4 bg-muted rounded-lg">
-                        <p className="text-sm text-muted-foreground mb-1">Avg per User</p>
-                        <p className="text-2xl font-bold">{stats.avgDailyUsagePerUser}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+            {/* Database Backup */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Database Backup</CardTitle>
+                <CardDescription>
+                  Backup instructions for production database
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Run the following command on your database server to create a backup:
+                </p>
+                <div className="p-4 bg-muted rounded-lg font-mono text-sm flex items-center justify-between">
+                  <code>{pgDumpCommand}</code>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      navigator.clipboard.writeText(pgDumpCommand);
+                      toast({ title: "Copied", description: "Command copied to clipboard" });
+                    }}
+                    data-testid="button-copy-backup"
+                  >
+                    <Copy className="w-4 h-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Note: This command must be run on the server with access to the database.
+                  The DATABASE_URL environment variable must be set.
+                </p>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* AI Assistant Tab */}
+          {/* ============ AI ASSISTANT TAB ============ */}
           <TabsContent value="ai" className="space-y-6">
             <Card>
               <CardHeader>
@@ -584,13 +793,13 @@ export default function Admin() {
                   <div>
                     <CardTitle>Admin AI Assistant</CardTitle>
                     <CardDescription>
-                      Get AI-powered insights and suggestions based on current usage and user data
+                      Get AI-powered insights and recommendations
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Predefined Prompts */}
+              <CardContent className="space-y-6">
+                {/* Quick Prompts */}
                 <div>
                   <p className="text-sm font-semibold mb-3">Quick Insights</p>
                   <div className="grid sm:grid-cols-2 gap-2">
@@ -598,14 +807,14 @@ export default function Admin() {
                       <Button
                         key={item.label}
                         variant="outline"
-                        className="justify-start"
+                        className="justify-start h-auto py-3"
                         onClick={() => {
                           setAiPrompt(item.prompt);
                           setAiResponse("");
                         }}
                         data-testid={`button-ai-${item.label.replace(/\s+/g, "-")}`}
                       >
-                        {item.label}
+                        <span className="text-left">{item.label}</span>
                       </Button>
                     ))}
                   </div>
@@ -615,7 +824,7 @@ export default function Admin() {
                 <div className="space-y-3 pt-4 border-t">
                   <Label>Custom Question</Label>
                   <Textarea
-                    placeholder="Ask me anything about your system, users, or usage patterns..."
+                    placeholder="Ask me anything about user activity, usage patterns, or system optimization..."
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     data-testid="textarea-ai-prompt"
@@ -645,7 +854,7 @@ export default function Admin() {
                 {aiResponse && (
                   <div className="space-y-3 pt-4 border-t">
                     <p className="text-sm font-semibold">AI Insights</p>
-                    <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm leading-relaxed">
+                    <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm leading-relaxed max-h-96 overflow-y-auto">
                       {aiResponse}
                     </div>
                     <Button

@@ -158,6 +158,7 @@ export function registerAdminRoutes(app: Express) {
         }).length,
         freeUsers: allUsers.filter((u) => u.plan === "FREE").length,
         proUsers: allUsers.filter((u) => u.plan.startsWith("PRO")).length,
+        adminUsers: allUsers.filter((u) => u.role === "admin").length,
         totalDailyUsage,
         avgDailyUsagePerUser,
         freeDailyLimit: parseInt(process.env.FREE_DAILY_LIMIT || "5"),
@@ -215,6 +216,60 @@ export function registerAdminRoutes(app: Express) {
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message || "Failed to update daily limit" });
+    }
+  });
+
+  // Export users as CSV
+  app.get("/api/admin/users/export", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const allUsers = await db.select().from(users);
+      
+      // Create CSV header
+      const csvHeader = "ID,Email,Role,Plan,Created At,Daily Usage\n";
+      
+      // Create CSV rows
+      const csvRows = allUsers.map((user) => {
+        const createdAt = new Date(user.createdAt).toISOString().split("T")[0];
+        return `"${user.id}","${user.email}","${user.role}","${user.plan}","${createdAt}","${user.dailyUsageCount}"`;
+      }).join("\n");
+
+      const csv = csvHeader + csvRows;
+      
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=users-export.csv");
+      res.send(csv);
+    } catch (error: any) {
+      console.error("Error exporting users:", error);
+      res.status(500).json({ error: error.message || "Failed to export users" });
+    }
+  });
+
+  // Get/Set maintenance mode (simple in-memory flag for now)
+  let maintenanceMode = false;
+
+  app.get("/api/admin/maintenance", requireAuth, requireAdmin, async (_req: Request, res: Response) => {
+    try {
+      res.json({ enabled: maintenanceMode });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to get maintenance status" });
+    }
+  });
+
+  app.put("/api/admin/maintenance", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { enabled } = req.body;
+      
+      if (typeof enabled !== "boolean") {
+        return res.status(400).json({ error: "enabled must be a boolean" });
+      }
+
+      maintenanceMode = enabled;
+      res.json({ 
+        message: "Maintenance mode updated",
+        enabled: maintenanceMode 
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message || "Failed to update maintenance mode" });
     }
   });
 
