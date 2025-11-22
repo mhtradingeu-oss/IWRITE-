@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/components/LanguageProvider";
-import { LogOut, Mail, CreditCard, Zap, Calendar, Shield } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { LogOut, Mail, CreditCard, Zap, Calendar, Shield, ArrowRight, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 
 const translations = {
@@ -144,6 +145,7 @@ export default function Settings() {
   const { language } = useLanguage();
   const t = translations[language];
   const [, navigate] = useLocation();
+  const { toast } = useToast();
 
   const { data: user, isLoading } = useQuery<User>({
     queryKey: ["/auth/me"],
@@ -159,6 +161,36 @@ export default function Settings() {
     await fetch("/auth/logout", { method: "POST", credentials: "include" });
     navigate("/");
   };
+
+  const upgradeMutation = useMutation({
+    mutationFn: async (planType: "monthly" | "yearly") => {
+      const response = await fetch("/api/billing/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planType }),
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create checkout session");
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Upgrade Failed",
+        description: error.message || "Failed to start upgrade process",
+        variant: "destructive",
+      });
+    },
+  });
 
   if (isLoading) {
     return (
@@ -351,11 +383,26 @@ export default function Settings() {
 
               {/* Upgrade Banner for FREE users */}
               {isFree && (
-                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-4">
-                  <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-2">{t.upgradeNote}</p>
-                  <p className="text-xs text-amber-800 dark:text-amber-200">
-                    Get unlimited AI generations, priority support, and more with PRO.
-                  </p>
+                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-4 space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-1">{t.upgradeNote}</p>
+                    <p className="text-xs text-amber-800 dark:text-amber-200">
+                      Get unlimited AI generations, priority support, and more with PRO.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={() => upgradeMutation.mutate("monthly")}
+                    disabled={upgradeMutation.isPending}
+                    className="w-full gap-2"
+                    data-testid="button-upgrade-to-pro"
+                  >
+                    {upgradeMutation.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <ArrowRight className="w-4 h-4" />
+                    )}
+                    Upgrade to PRO Now
+                  </Button>
                 </div>
               )}
             </CardContent>

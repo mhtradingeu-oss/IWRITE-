@@ -1,9 +1,8 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
 
 const plans = [
   {
@@ -13,8 +12,9 @@ const plans = [
     period: "",
     description: "For getting started",
     features: [
-      "5 AI generations per month",
-      "1 style profile",
+      "5 AI generations per day",
+      "Unlimited templates",
+      "Unlimited style profiles",
       "Basic export (MD/DOCX)",
       "Community support",
     ],
@@ -27,6 +27,7 @@ const plans = [
     description: "Professional use",
     features: [
       "Unlimited AI generations",
+      "Unlimited templates",
       "Unlimited style profiles",
       "All export formats",
       "Email support",
@@ -41,6 +42,7 @@ const plans = [
     description: "Best value (2 months free)",
     features: [
       "Unlimited AI generations",
+      "Unlimited templates",
       "Unlimited style profiles",
       "All export formats",
       "Priority support",
@@ -63,31 +65,30 @@ export default function Plans() {
   });
 
   const upgradeMutation = useMutation({
-    mutationFn: async (plan: string) => {
-      const response = await fetch("/auth/upgrade", {
+    mutationFn: async (planType: "monthly" | "yearly") => {
+      const response = await fetch("/api/billing/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan }),
+        body: JSON.stringify({ planType }),
         credentials: "include",
       });
 
       if (!response.ok) {
-        throw new Error("Failed to upgrade");
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create checkout session");
       }
 
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/auth/me"] });
-      toast({
-        title: "Success",
-        description: "Plan updated successfully",
-      });
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: "Failed to update plan",
+        description: error.message || "Failed to start upgrade process",
         variant: "destructive",
       });
     },
@@ -109,6 +110,7 @@ export default function Plans() {
             className={`p-8 flex flex-col ${
               plan.id === user?.plan ? "ring-2 ring-primary" : ""
             }`}
+            data-testid={`card-plan-${plan.id}`}
           >
             <h2 className="text-2xl font-bold mb-2">{plan.name}</h2>
             <p className="text-muted-foreground mb-6">{plan.description}</p>
@@ -122,16 +124,21 @@ export default function Plans() {
               className="w-full mb-8"
               variant={plan.id === user?.plan ? "outline" : "default"}
               disabled={plan.id === user?.plan || upgradeMutation.isPending}
-              onClick={() => upgradeMutation.mutate(plan.id)}
+              onClick={() => {
+                if (plan.id === "FREE") return;
+                const planType = plan.id === "PRO_MONTHLY" ? "monthly" : "yearly";
+                upgradeMutation.mutate(planType);
+              }}
               data-testid={`button-select-plan-${plan.id}`}
             >
-              {plan.id === user?.plan ? "Current Plan" : "Select Plan"}
+              {upgradeMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              {plan.id === user?.plan ? "Current Plan" : plan.id === "FREE" ? "Your Plan" : "Upgrade Now"}
             </Button>
 
             <div className="space-y-3">
               {plan.features.map((feature, index) => (
                 <div key={index} className="flex items-start gap-3">
-                  <Check className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <Check className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
                   <span className="text-sm">{feature}</span>
                 </div>
               ))}
@@ -143,10 +150,10 @@ export default function Plans() {
       <div className="mt-12 p-6 bg-muted rounded-lg">
         <h3 className="font-semibold mb-2">📝 Current Plan</h3>
         <p className="text-muted-foreground">
-          You are on the <strong>{user?.plan}</strong> plan
+          You are on the <strong>{user?.plan || "FREE"}</strong> plan
         </p>
         <p className="text-sm text-muted-foreground mt-2">
-          ℹ️ Payment integration coming soon. For now, use admin tools to manage plans.
+          ✓ Stripe payment integration is now active. Click "Upgrade Now" to start your premium experience.
         </p>
       </div>
     </div>

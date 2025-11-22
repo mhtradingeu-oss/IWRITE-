@@ -24,6 +24,7 @@ import AIWriter from "@/pages/AIWriter";
 import Songwriter from "@/pages/Songwriter";
 import Plans from "@/pages/Plans";
 import Settings from "@/pages/Settings";
+import UpgradeSuccess from "@/pages/UpgradeSuccess";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/search" component={TopicSearch} />
       <Route path="/plans" component={Plans} />
       <Route path="/settings" component={Settings} />
+      <Route path="/upgrade/success" component={UpgradeSuccess} />
       <Route component={NotFound} />
     </Switch>
   );

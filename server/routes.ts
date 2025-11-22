@@ -7,6 +7,7 @@ import { insertDocumentSchema, insertTemplateSchema, insertStyleProfileSchema, e
 import { fromZodError } from "zod-validation-error";
 import { exportToMarkdown, exportToDOCX, exportToPDF } from "./export";
 import { registerAuthRoutes } from "./authRoutes";
+import { registerBillingRoutes } from "./billingRoutes";
 import { requireAuth } from "./index";
 import { checkDailyLimit } from "./limitMiddleware";
 
@@ -47,6 +48,8 @@ const upload = multer({
 export async function registerRoutes(app: Express) {
   // Register auth routes first
   registerAuthRoutes(app);
+  // Register billing routes
+  registerBillingRoutes(app);
   // Health check (also at /healthz in index.ts, this is for consistency)
   app.get("/api/health", async (_req: Request, res: Response) => {
     res.json({ 

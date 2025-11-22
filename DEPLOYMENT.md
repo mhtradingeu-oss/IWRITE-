@@ -884,3 +884,164 @@ A: See `replit.md` for authentication architecture. Consider using Passport.js (
 
 **Q: Is there a free tier?**
 A: IWRITE itself is free and MIT-licensed. Database, AI, and storage services may have costs.
+
+---
+
+## 💳 Stripe & Billing Configuration
+
+### Required Environment Variables
+
+For production deployment, configure the following Stripe environment variables:
+
+| Variable | Description | Format |
+|----------|-------------|--------|
+| `STRIPE_SECRET_KEY` | Stripe secret API key | `sk_live_...` or `sk_test_...` |
+| `STRIPE_PUBLIC_KEY` | Stripe publishable key (optional) | `pk_live_...` or `pk_test_...` |
+| `STRIPE_PRICE_ID_MONTHLY` | Price ID for $14.99/month plan | `price_...` |
+| `STRIPE_PRICE_ID_YEARLY` | Price ID for $149.99/year plan | `price_...` |
+| `STRIPE_WEBHOOK_SECRET` | Webhook signing secret | `whsec_...` |
+| `FRONTEND_URL` | Frontend URL for redirect (optional) | `https://yourapp.com` |
+
+### Setting Up Stripe
+
+1. **Create Stripe Account**
+   - Go to https://stripe.com
+   - Sign up or log in
+
+2. **Create Products & Prices**
+   - In Stripe Dashboard → Products
+   - Create "IWRITE PRO Monthly" product
+     - Price: $14.99/month (recurring)
+     - Copy the Price ID → Set as `STRIPE_PRICE_ID_MONTHLY`
+   - Create "IWRITE PRO Yearly" product
+     - Price: $149.99/year (recurring)
+     - Copy the Price ID → Set as `STRIPE_PRICE_ID_YEARLY`
+
+3. **Get API Keys**
+   - In Stripe Dashboard → Developers → API keys
+   - Copy **Secret key** → Set as `STRIPE_SECRET_KEY`
+   - Copy **Publishable key** → Set as `STRIPE_PUBLIC_KEY`
+
+4. **Configure Webhook** (Optional but recommended)
+   - In Stripe Dashboard → Developers → Webhooks
+   - Click "Add endpoint"
+   - Endpoint URL: `https://yourapp.com/api/billing/webhook`
+   - Select events: `checkout.session.completed`, `customer.subscription.deleted`
+   - Copy **Signing secret** → Set as `STRIPE_WEBHOOK_SECRET`
+
+### Upgrade Flow
+
+**User Journey:**
+1. FREE user clicks "Upgrade to PRO" in Settings or Plans page
+2. Frontend calls `POST /api/billing/create-checkout-session`
+3. Backend creates Stripe Checkout Session
+4. User redirected to Stripe Checkout (hosted payment page)
+5. After payment, Stripe redirects to `/upgrade/success`
+6. Backend webhook (`POST /api/billing/webhook`) updates user plan in database
+7. User's plan changes from `FREE` → `PRO_MONTHLY` or `PRO_YEARLY`
+
+### API Endpoints
+
+**Create Checkout Session**
+```
+POST /api/billing/create-checkout-session
+Authorization: Required (authenticated user)
+Content-Type: application/json
+
+Request:
+{
+  "planType": "monthly" | "yearly"
+}
+
+Response:
+{
+  "url": "https://checkout.stripe.com/pay/..."
+}
+```
+
+**Stripe Webhook**
+```
+POST /api/billing/webhook
+Content-Type: application/json
+Stripe-Signature: t=...,v1=...
+
+Processes:
+- checkout.session.completed: Updates user plan
+- customer.subscription.deleted: Handles subscription cancellation
+```
+
+**Billing Status**
+```
+GET /api/billing/status
+Authorization: Required
+
+Response:
+{
+  "plan": "PRO_MONTHLY",
+  "planStartedAt": "2025-11-22T12:00:00Z",
+  "planExpiresAt": "2025-12-22T12:00:00Z",
+  "isActive": true
+}
+```
+
+### Plan Behavior
+
+**FREE Plan:**
+- 5 AI generations per day
+- All templates, style profiles, uploads available
+- Limit resets daily at midnight UTC
+
+**PRO Plans (MONTHLY / YEARLY):**
+- Unlimited AI generations
+- All templates, style profiles, uploads available
+- No daily limits
+- Recurring billing (monthly: $14.99, yearly: $149.99)
+
+### Testing Stripe Integration
+
+**Using Stripe Test Keys:**
+1. Use `sk_test_...` and `pk_test_...` keys from Stripe Dashboard
+2. Use test payment card numbers:
+   - Success: `4242 4242 4242 4242`
+   - Failure: `4000 0000 0000 0002`
+   - Decline (CVC): `4000 0000 0000 0069`
+
+**Test Webhook Locally:**
+```bash
+# Install Stripe CLI: https://stripe.com/docs/stripe-cli
+
+# Login to your Stripe account
+stripe login
+
+# Forward webhook events to your local endpoint
+stripe listen --forward-to localhost:5000/api/billing/webhook
+
+# Trigger test events (in another terminal)
+stripe trigger checkout.session.completed
+```
+
+### Troubleshooting
+
+**"Stripe not configured" error:**
+- Verify `STRIPE_SECRET_KEY` is set in environment variables
+- Check key starts with `sk_` (not `pk_`)
+
+**Payment redirects to wrong URL:**
+- Verify `FRONTEND_URL` environment variable is set correctly
+- Should not include trailing slash
+
+**Webhook events not received:**
+- Ensure `STRIPE_WEBHOOK_SECRET` is correctly copied from Stripe Dashboard
+- Check webhook endpoint is publicly accessible (not localhost)
+- Review webhook delivery logs in Stripe Dashboard
+
+**User plan not updating after payment:**
+- Check webhook delivery in Stripe Dashboard → Events
+- Verify database connection and user record exists
+- Check server logs for webhook processing errors
+
+---
+
+**Status:** Stripe integration is production-ready  
+**Last Updated:** November 2025  
+**Version:** 1.1
