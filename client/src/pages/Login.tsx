@@ -84,12 +84,21 @@ export default function Login() {
         return;
       }
 
+      const data = await response.json();
+      const userRole = data.user.role;
+      const userPlan = data.user.plan;
+
       toast({
         title: "Success",
         description: isRegister ? "Account created" : "Logged in",
       });
 
-      navigate("/dashboard");
+      // Role-based redirection
+      if (userRole === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (error) {
       toast({
         title: "Error",
