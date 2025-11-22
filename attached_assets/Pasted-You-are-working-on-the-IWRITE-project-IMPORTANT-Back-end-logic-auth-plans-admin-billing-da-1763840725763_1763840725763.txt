@@ -1,0 +1,66 @@
+You are working on the IWRITE project.
+
+IMPORTANT:  
+Back-end logic, auth, plans, admin, billing, daily limits, and database are already implemented and considered correct.  
+Your task in this turn is **ONLY** to fix and polish the **UI layer**:
+
+- Routes & pages
+- Navigation (sidebar, header, footer)
+- Click behavior and redirections
+- Loading/empty/error states in the UI
+
+You MUST NOT:
+- Change API endpoints, DB schema, or env var names
+- Change auth logic, plan logic, admin logic, or billing logic
+- Move or modify QueryClientProvider setup
+- Remove existing security checks
+
+You MAY:
+- Edit React components, routes, and client-side navigation
+- Add/adjust UI state (loading, error banners, disabled buttons)
+- Fix imports and page registrations
+- Adjust text, labels, icons, and layout for clarity
+
+The goal is to make the entire UI **feel complete, consistent, and free of 404s or dead links.**
+
+--------------------------------------------------
+PART 1 – ROUTES & PAGES (NO 404s)
+--------------------------------------------------
+
+1) Find the main client routing setup:
+   - `client/src/App.tsx` and any router config files
+   - The main layout that renders sidebar + content + footer
+
+2) Ensure that the following paths are defined and mapped to valid React page components (no 404):
+
+   Workspace / Product:
+   - `/dashboard`
+   - `/ai-writer`
+   - `/songwriter`
+   - `/documents`
+   - `/file-uploads`
+   - `/templates`
+   - `/style-profiles`
+   - `/search`
+   - `/topics`
+   - `/archive`
+   - `/settings`
+   - `/admin` (route exists; access control is handled on backend)
+
+   Legal:
+   - `/legal/imprint`
+   - `/legal/privacy`
+   - `/legal/terms`
+   - `/legal/payment`
+
+   Billing / Upgrade:
+   - `/upgrade/success` (or whatever success route exists)
+
+3) Make sure:
+   - The **404 / NotFound** component is only used as a catch-all route (e.g. `path="*"`), and does not override valid routes.
+   - The root `/` route:
+     - After auth, redirects to a real page (e.g. `/dashboard`).
+
+4) If any of the above pages are missing:
+   - Create simple React pages for them with basic headings and layout consistent with the rest of the app.
+   - Use existing design tokens / components (cards, headings, sections).

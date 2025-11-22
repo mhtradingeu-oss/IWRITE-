@@ -97,7 +97,7 @@ export default function Admin() {
   });
 
   // Check if user is admin
-  const isAdmin = currentUser?.email === process.env.VITE_ADMIN_EMAIL || currentUser?.email === "mhtrading@gmail.com";
+  const isAdmin = currentUser?.email === import.meta.env.VITE_ADMIN_EMAIL || currentUser?.email === "mhtrading@gmail.com";
 
   if (!isAdmin) {
     return (
@@ -210,7 +210,7 @@ export default function Admin() {
                 <p className="font-semibold">FREE Daily Limit</p>
                 <p className="text-sm text-muted-foreground">Maximum AI generations per day for FREE users</p>
               </div>
-              <p className="text-2xl font-bold">{process.env.VITE_FREE_DAILY_LIMIT || 5}</p>
+              <p className="text-2xl font-bold">{import.meta.env.VITE_FREE_DAILY_LIMIT || 5}</p>
             </div>
             <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
               <div>
@@ -224,8 +224,8 @@ export default function Admin() {
                 <p className="font-semibold">Stripe Status</p>
                 <p className="text-sm text-muted-foreground">Payment processing availability</p>
               </div>
-              <p className={`text-lg font-semibold ${process.env.VITE_STRIPE_PUBLIC_KEY ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
-                {process.env.VITE_STRIPE_PUBLIC_KEY ? "Configured" : "Not Configured"}
+              <p className={`text-lg font-semibold ${import.meta.env.VITE_STRIPE_PUBLIC_KEY ? "text-green-600 dark:text-green-400" : "text-destructive"}`}>
+                {import.meta.env.VITE_STRIPE_PUBLIC_KEY ? "Configured" : "Not Configured"}
               </p>
             </div>
           </div>
