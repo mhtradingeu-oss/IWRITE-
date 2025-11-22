@@ -1,0 +1,117 @@
+You are an expert TypeScript + React developer working in the **IWRITE** template editor.
+
+🎯 GOAL
+Enhance the **Edit Template** UI and data model so that:
+- The user can upload a logo (not just paste a URL).
+- The user can control the logo **position** and **size**.
+- The user can configure basic **typography** (fonts) for headings and body text.
+- The live preview on the right updates in real-time to reflect these changes.
+
+Please implement the following:
+
+1) LOGO UPLOAD & MANAGEMENT
+
+- In the "Logo" section of the Edit Template view:
+  - Keep the existing URL input, but add:
+    - A primary button: **"Upload Logo"**.
+    - When clicked, allow the user to select an image file (PNG/JPG/SVG).
+  - After upload:
+    - Store the uploaded file using the existing upload mechanism in the app (same approach as other media uploads).
+    - Save the resulting URL in the template’s `logoUrl` field.
+  - Under the upload area, show:
+    - A preview of the logo (using the final URL).
+    - If loading fails, show a small inline error.
+
+2) LOGO POSITION & SIZE
+
+- Extend the template model (DB + API + TypeScript types) to include:
+  - `logoPosition`: `'top_left' | 'top_center' | 'top_right' | 'header_bar' | 'side'`
+  - `logoSize`: `'small' | 'medium' | 'large'`
+  // If it fits better, you can use numeric values like `logoMaxWidthPx: number` instead of the enum.
+
+- In the Edit Template UI (under Logo):
+  - Add a **Logo Position** dropdown with options:
+    - Top left
+    - Top center
+    - Top right
+    - In header bar
+    - Side
+  - Add a **Logo Size** control:
+    - Either a segmented control (Small / Medium / Large)
+    - Or a slider for max width (e.g. 32–160px) with a numeric field.
+
+- In the Preview:
+  - Use `logoPosition` to decide where the logo is rendered:
+    - For top_left/center/right: place the logo above the header text aligned accordingly.
+    - For header_bar: keep it inside the blue bar like the current design.
+    - For side: show a smaller logo on the side of the heading area.
+  - Use `logoSize` or `logoMaxWidthPx` to set the CSS `max-width` or `height` for the logo image.
+
+3) TYPOGRAPHY (FONTS)
+
+- Extend the template model to include typography fields, for example:
+  - `headingFontFamily: string`
+  - `bodyFontFamily: string`
+  - (Optional) `baseFontSize: 'small' | 'normal' | 'large'` or a numeric size.
+
+- In the Edit Template UI, add a **Typography** section with:
+  - Heading Font (select):
+    - Inter
+    - Georgia
+    - Cairo (for Arabic)
+    - Noto Sans Arabic
+    - System UI (fallback)
+  - Body Font (select):
+    - Inter
+    - System UI
+    - Cairo
+    - Noto Sans Arabic
+
+- Each select option should show a small preview label (e.g., “Aa أب”) rendered in that font if available.
+
+- In the Preview component:
+  - Apply `headingFontFamily` to the document title and section headings.
+  - Apply `bodyFontFamily` to the body text and footer.
+  - If the selected font is not available, fall back to a safe stack (e.g. system UI / sans-serif).
+
+4) LIVE PREVIEW BEHAVIOR
+
+- Make sure that:
+  - When the user changes logo URL, upload a new logo, changes logo position/size, or changes fonts:
+    - The preview updates immediately (with a small debounce, e.g. 200–300ms).
+  - The preview remains lightweight and fast; do not re-render the entire app.
+
+- Keep RTL/LTR support:
+  - In Arabic mode, if logoPosition is top_left/top_right, interpret them relative to reading direction (or at least ensure the UI doesn’t break).
+  - Headings and body text should still align according to the active language.
+
+5) DATA FLOW & BACKEND
+
+- Update:
+  - Template TypeScript interfaces/models.
+  - Any API routes or database migrations needed to store:
+    - `logoPosition`, `logoSize` (or `logoMaxWidthPx`),
+    - `headingFontFamily`, `bodyFontFamily` (+ optional font size).
+
+- Ensure backward compatibility:
+  - Existing templates without these fields should still load with sensible defaults:
+    - `logoPosition = 'header_bar'`
+    - `logoSize = 'medium'`
+    - `headingFontFamily = 'Inter'`
+    - `bodyFontFamily = 'Inter'` (or existing default).
+
+6) TEST & SUMMARY
+
+- Test:
+  - Creating a new template with an uploaded logo.
+  - Changing logo position and size and confirming preview updates.
+  - Switching heading/body fonts and confirming the preview typography changes.
+- Verify that generated documents which use a template still render correctly and can later use these typography settings (even if only in the preview/export for now).
+
+Finally, summarize:
+- What files you changed/created.
+- How to use:
+  - Logo upload,
+  - Position/size controls,
+  - Typography controls,
+in the updated Edit Template UI.
