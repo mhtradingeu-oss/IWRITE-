@@ -23,6 +23,7 @@ import TopicPack from "@/pages/TopicPack";
 import TopicSearch from "@/pages/TopicSearch";
 import AIWriter from "@/pages/AIWriter";
 import Songwriter from "@/pages/Songwriter";
+import Upgrade from "@/pages/Upgrade";
 import Plans from "@/pages/Plans";
 import Settings from "@/pages/Settings";
 import UpgradeSuccess from "@/pages/UpgradeSuccess";
@@ -50,6 +51,7 @@ function Router() {
       <Route path="/topics" component={Topics} />
       <Route path="/topics/:id" component={TopicPack} />
       <Route path="/search" component={TopicSearch} />
+      <Route path="/upgrade" component={Upgrade} />
       <Route path="/plans" component={Plans} />
       <Route path="/settings" component={Settings} />
       <Route path="/upgrade/success" component={UpgradeSuccess} />
@@ -76,6 +78,7 @@ const AUTHENTICATED_ROUTES = [
   "/topics",
   "/topics/:id",
   "/search",
+  "/upgrade",
   "/plans",
   "/settings",
   "/upgrade/success",

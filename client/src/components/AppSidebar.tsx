@@ -141,7 +141,7 @@ const libraryItems = [
 ];
 
 export function AppSidebar() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const { language } = useLanguage();
   const t = translations[language as keyof typeof translations];
   
@@ -187,11 +187,15 @@ export function AppSidebar() {
                 if (isGated) {
                   return (
                     <SidebarMenuItem key={item.title}>
-                      <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-muted-foreground opacity-60 cursor-not-allowed">
+                      <button
+                        onClick={() => navigate("/upgrade")}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground opacity-70 hover:opacity-100 hover:bg-accent/20 transition-all cursor-pointer"
+                        data-testid={`button-upgrade-${item.title}`}
+                      >
                         <item.icon className="h-4 w-4" />
                         <span className="flex-1">{t[item.title as keyof typeof t]}</span>
                         <span className="text-xs bg-accent/30 px-2 py-0.5 rounded">{t.upgradeRequired}</span>
-                      </div>
+                      </button>
                     </SidebarMenuItem>
                   );
                 }
@@ -221,11 +225,15 @@ export function AppSidebar() {
                 if (isGated) {
                   return (
                     <SidebarMenuItem key={item.title}>
-                      <div className="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-muted-foreground opacity-60 cursor-not-allowed">
+                      <button
+                        onClick={() => navigate("/upgrade")}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-xs text-muted-foreground opacity-70 hover:opacity-100 hover:bg-accent/20 transition-all cursor-pointer"
+                        data-testid={`button-upgrade-${item.title}`}
+                      >
                         <item.icon className="h-4 w-4" />
                         <span className="flex-1">{t[item.title as keyof typeof t]}</span>
                         <span className="text-xs bg-accent/30 px-2 py-0.5 rounded">{t.upgradeRequired}</span>
-                      </div>
+                      </button>
                     </SidebarMenuItem>
                   );
                 }
