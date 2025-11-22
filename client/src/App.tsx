@@ -8,10 +8,9 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Header } from "@/components/Header";
-import { AppFooter } from "@/components/AppFooter";
 import Login from "@/pages/Login";
+import Home from "@/pages/Home";
 import Dashboard from "@/pages/Dashboard";
-import RootPage from "@/pages/RootPage";
 import Documents from "@/pages/Documents";
 import DocumentEditor from "@/pages/DocumentEditor";
 import Uploads from "@/pages/Uploads";
@@ -37,7 +36,7 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={RootPage} />
+      <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/ai-writer" component={AIWriter} />
