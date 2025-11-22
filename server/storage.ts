@@ -835,5 +835,13 @@ export class DbStorage implements IStorage {
   }
 }
 
+// Database client initialization for direct use (e.g., in authRoutes)
+let db: any;
+if (process.env.DATABASE_URL) {
+  const sql = neon(process.env.DATABASE_URL);
+  db = drizzle(sql);
+}
+
 // Use DbStorage for production, MemStorage for testing
 export const storage = process.env.DATABASE_URL ? new DbStorage() : new MemStorage();
+export { db };
