@@ -1,0 +1,82 @@
+You are an expert TypeScript + React developer working inside the **IWRITE** project.
+
+🎯 GOAL
+Fix the **logo upload** in the Template editor and update the **Preview** so that:
+- Logo upload actually works (using the app’s existing upload mechanism).
+- The uploaded logo immediately appears in the preview.
+- The default document "paper" in the preview is **white**, like a real A4 page, with dark text and a colored header.
+
+Please do the following:
+
+1) FIX LOGO UPLOAD
+
+- Locate the Template Edit component (the one showing:
+  - Template Name
+  - Logo section with “Upload Logo” and URL input
+  - Logo Position, Footer, Brand Colors, and the Preview on the right).
+
+- Implement a working logo upload flow:
+  - Add or wire an `<input type="file" accept="image/*">` (hidden), triggered by the **Upload Logo** button.
+  - On file selection:
+    - Use the existing file-upload utility / API already used elsewhere in the app (for example the File Uploads feature) to upload the logo image.
+    - On success:
+      - Set the resulting URL into the template form state (e.g. `logoUrl`).
+      - Clear any previous error and update the preview.
+    - On failure:
+      - Show a small inline error message under the logo section (and do not crash the editor).
+
+- Make sure:
+  - The URL input (manual logo URL) still works.
+  - If both are used, the uploaded logo URL should overwrite the manual URL (or vice versa — just be consistent).
+
+2) BIND LOGO TO PREVIEW
+
+- Ensure the Preview component:
+  - Receives the current template’s `logoUrl` (from local state, not only from saved DB).
+  - Renders the logo image if `logoUrl` is present.
+  - Shows a placeholder icon only if there is no valid logo URL.
+
+- When the user changes `logoPosition` (In Header Bar / Top Left / Top Center / Top Right / Side), update the layout accordingly in the preview.
+
+3) MAKE THE PREVIEW "PAPER" WHITE
+
+- Update the preview styling so that:
+  - The main document “paper” background is **white** (`#ffffff`).
+  - The surrounding backdrop/card can remain dark or gray for contrast.
+  - Text inside the paper uses a dark color (`#111827` / `#1f2933`).
+  - The header bar uses the template’s **Primary Color**, with white text.
+
+- Concretely:
+  - Define CSS classes or Tailwind classes such as:
+    - Paper container:
+      - rounded corners
+      - background `#ffffff`
+      - box-shadow (to feel like a page hovering over the dark UI)
+    - Header:
+      - background = primaryColor
+      - text color = white
+    - Body:
+      - padding (e.g. `p-6`)
+      - normal dark text
+    - Footer:
+      - smaller font, muted color, still on white or a very light gray band.
+
+- Ensure that the preview respects RTL/LTR as currently implemented (for Arabic, text alignment should still be right).
+
+4) DEFAULTS
+
+- If no Primary Color is set for the template, use a sensible default (e.g. `#2563eb` or any existing brand blue).
+- If no logoUrl is set, show a neutral placeholder icon in the header.
+
+5) TEST & SUMMARY
+
+- Test the following flows:
+  - Create a new template, upload a logo image, choose a logo position, and verify the preview updates.
+  - Edit an existing template and change the logo.
+  - Confirm that the document preview paper is white with a colored header and dark body text.
+- Make sure no runtime errors occur if the user cancels the file picker or uploads an unsupported file.
+
+Finally, summarize:
+- Which files you changed.
+- How the logo upload works now.
+- How the new white-paper preview behaves and how to adjust colors if needed.

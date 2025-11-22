@@ -187,6 +187,10 @@ interface TemplateFormData {
   brandColors: { primary: string; secondary: string };
 }
 
+interface TemplateFormState extends TemplateFormData {
+  uploadError?: string;
+}
+
 interface PreviewProps {
   template: TemplateFormData;
   language: string;
@@ -198,6 +202,7 @@ function TemplatePreview({ template, language }: PreviewProps) {
   const logoPixelSize = LOGO_SIZE_MAP[template.logoSize];
   const headingFont = FONT_FAMILY_MAP[template.headingFontFamily];
   const bodyFont = FONT_FAMILY_MAP[template.bodyFontFamily];
+  const primaryColor = template.brandColors.primary || "#1E40AF";
 
   const renderLogo = () => {
     if (!template.logoUrl) return null;
@@ -218,9 +223,9 @@ function TemplatePreview({ template, language }: PreviewProps) {
   return (
     <div className="bg-muted/30 rounded-lg p-6 flex flex-col h-full overflow-y-auto">
       <h3 className="text-sm font-semibold mb-4">{t.preview}</h3>
-      <Card className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-900">
+      <div className="flex-1 flex flex-col overflow-hidden rounded-lg shadow-lg" style={{ backgroundColor: "#ffffff" }}>
         {/* Header Section - varies by logo position */}
-        <div className="p-6 border-b" style={{ backgroundColor: template.brandColors.primary }}>
+        <div className="p-6 border-b" style={{ backgroundColor: primaryColor }}>
           {template.logoPosition === "header_bar" && (
             <div className={`flex items-start gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
               {renderLogo() || (
@@ -331,25 +336,26 @@ function TemplatePreview({ template, language }: PreviewProps) {
         </div>
 
         {/* Body Section */}
-        <div className="p-6 flex-1">
+        <div className="p-6 flex-1" style={{ backgroundColor: "#ffffff" }}>
           <div
             className="space-y-3"
             style={{
               textAlign: isRTL ? "right" : "left",
               direction: isRTL ? "rtl" : "ltr",
               fontFamily: bodyFont.css,
+              color: "#111827",
             }}
           >
             <h2
               className="font-bold text-lg"
               style={{
-                color: template.brandColors.primary,
+                color: primaryColor,
                 fontFamily: headingFont.css,
               }}
             >
               Document Title
             </h2>
-            <p className="text-sm text-muted-foreground">{t.sampleContent}</p>
+            <p className="text-sm" style={{ color: "#6b7280" }}>{t.sampleContent}</p>
             <div className="pt-3 space-y-2">
               <h3
                 className="font-semibold text-sm"
@@ -360,7 +366,7 @@ function TemplatePreview({ template, language }: PreviewProps) {
               >
                 Section Heading
               </h3>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs" style={{ color: "#6b7280" }}>
                 Lorem ipsum dolor sit amet, consectetur adipiscing elit.
               </p>
             </div>
@@ -370,17 +376,19 @@ function TemplatePreview({ template, language }: PreviewProps) {
         {/* Footer Section */}
         {template.footer && (
           <div
-            className="px-6 py-3 border-t bg-muted/50 text-xs text-muted-foreground"
+            className="px-6 py-3 border-t text-xs"
             style={{
+              backgroundColor: "#f9fafb",
               textAlign: isRTL ? "right" : "left",
               direction: isRTL ? "rtl" : "ltr",
               fontFamily: bodyFont.css,
+              color: "#6b7280",
             }}
           >
             {template.footer}
           </div>
         )}
-      </Card>
+      </div>
     </div>
   );
 }
@@ -394,7 +402,7 @@ export default function Templates() {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [formData, setFormData] = useState<TemplateFormData>({
+  const [formData, setFormData] = useState<TemplateFormState>({
     name: "",
     header: "",
     footer: "",
@@ -404,6 +412,7 @@ export default function Templates() {
     headingFontFamily: "inter",
     bodyFontFamily: "inter",
     brandColors: { primary: "#1E40AF", secondary: "#F59E0B" },
+    uploadError: undefined,
   });
 
   const { data: templates, isLoading } = useQuery<Template[]>({
@@ -489,6 +498,7 @@ export default function Templates() {
       headingFontFamily: "inter",
       bodyFontFamily: "inter",
       brandColors: { primary: "#1E40AF", secondary: "#F59E0B" },
+      uploadError: undefined,
     });
   };
 
@@ -504,6 +514,7 @@ export default function Templates() {
       headingFontFamily: template.headingFontFamily || "inter",
       bodyFontFamily: template.bodyFontFamily || "inter",
       brandColors: template.brandColors || { primary: "#1E40AF", secondary: "#F59E0B" },
+      uploadError: undefined,
     });
     setIsDrawerOpen(true);
   };
@@ -516,15 +527,19 @@ export default function Templates() {
 
   const handleLogoUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
+      const errorMsg = "Please upload an image file (PNG, JPG, SVG, etc.)";
+      setFormData({ ...formData, uploadError: errorMsg });
       toast({
         title: "Invalid file",
-        description: "Please upload an image file (PNG, JPG, SVG, etc.)",
+        description: errorMsg,
         variant: "destructive",
       });
       return;
     }
 
     setIsUploading(true);
+    setFormData({ ...formData, uploadError: undefined });
+    
     try {
       const formDataUpload = new FormData();
       formDataUpload.append("files", file);
@@ -534,20 +549,33 @@ export default function Templates() {
         body: formDataUpload,
       });
 
-      if (!response.ok) throw new Error("Upload failed");
+      if (!response.ok) {
+        throw new Error("Upload failed");
+      }
 
       const data = await response.json();
-      if (data.files && data.files.length > 0) {
-        setFormData({ ...formData, logoUrl: data.files[0].url });
-        toast({
-          title: "Logo uploaded",
-          description: "Your logo has been uploaded successfully.",
-        });
+      if (Array.isArray(data) && data.length > 0) {
+        const uploadedFile = data[0];
+        const logoUrl = uploadedFile.filePath || uploadedFile.url || "";
+        
+        if (logoUrl) {
+          setFormData({ ...formData, logoUrl, uploadError: undefined });
+          toast({
+            title: "Logo uploaded",
+            description: "Your logo has been uploaded successfully.",
+          });
+        } else {
+          throw new Error("No file path returned from upload");
+        }
+      } else {
+        throw new Error("No files uploaded");
       }
-    } catch (error) {
+    } catch (error: any) {
+      const errorMsg = error.message || "Failed to upload logo. Please try again.";
+      setFormData({ ...formData, uploadError: errorMsg });
       toast({
         title: "Upload failed",
-        description: "Failed to upload logo. Please try again.",
+        description: errorMsg,
         variant: "destructive",
       });
     } finally {
@@ -675,14 +703,20 @@ export default function Templates() {
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploading}
                       className="w-full"
+                      data-testid="button-upload-logo"
                     >
                       {isUploading ? "Uploading..." : t.uploadLogo}
                     </Button>
+                    {formData.uploadError && (
+                      <p className="text-sm text-destructive" data-testid="error-logo-upload">
+                        {formData.uploadError}
+                      </p>
+                    )}
                     <Input
                       type="url"
                       placeholder="https://example.com/logo.png"
                       value={formData.logoUrl}
-                      onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value, uploadError: undefined })}
                       data-testid="input-logo-url"
                       className="text-sm"
                     />
