@@ -187,8 +187,15 @@ interface TemplateFormData {
   brandColors: { primary: string; secondary: string };
 }
 
+interface LogoFileInfo {
+  name: string;
+  size: number;
+  extension: string;
+}
+
 interface TemplateFormState extends TemplateFormData {
   uploadError?: string;
+  logoFileInfo?: LogoFileInfo;
 }
 
 interface PreviewProps {
@@ -413,6 +420,7 @@ export default function Templates() {
     bodyFontFamily: "inter",
     brandColors: { primary: "#1E40AF", secondary: "#F59E0B" },
     uploadError: undefined,
+    logoFileInfo: undefined,
   });
 
   const { data: templates, isLoading } = useQuery<Template[]>({
@@ -499,6 +507,7 @@ export default function Templates() {
       bodyFontFamily: "inter",
       brandColors: { primary: "#1E40AF", secondary: "#F59E0B" },
       uploadError: undefined,
+      logoFileInfo: undefined,
     });
   };
 
@@ -515,6 +524,7 @@ export default function Templates() {
       bodyFontFamily: template.bodyFontFamily || "inter",
       brandColors: template.brandColors || { primary: "#1E40AF", secondary: "#F59E0B" },
       uploadError: undefined,
+      logoFileInfo: undefined,
     });
     setIsDrawerOpen(true);
   };
@@ -523,6 +533,14 @@ export default function Templates() {
     setEditingTemplate(null);
     resetForm();
     setIsDrawerOpen(true);
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
   const handleLogoUpload = async (file: File) => {
@@ -559,10 +577,19 @@ export default function Templates() {
         // Use the file serving endpoint to get the image URL
         const logoUrl = `/api/uploads/${uploadedFile.id}/file`;
         
-        setFormData({ ...formData, logoUrl, uploadError: undefined });
+        // Extract file extension
+        const extension = file.name.split('.').pop()?.toUpperCase() || "UNKNOWN";
+        
+        const logoFileInfo: LogoFileInfo = {
+          name: file.name,
+          size: file.size,
+          extension: extension,
+        };
+        
+        setFormData({ ...formData, logoUrl, uploadError: undefined, logoFileInfo });
         toast({
           title: "Logo uploaded",
-          description: "Your logo has been uploaded successfully.",
+          description: `${file.name} (${formatFileSize(file.size)}) uploaded successfully.`,
         });
       } else {
         throw new Error("No files uploaded");
@@ -708,6 +735,17 @@ export default function Templates() {
                       <p className="text-sm text-destructive" data-testid="error-logo-upload">
                         {formData.uploadError}
                       </p>
+                    )}
+                    {formData.logoFileInfo && (
+                      <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded flex justify-between items-center">
+                        <span data-testid="logo-file-info">
+                          <strong>File:</strong> {formData.logoFileInfo.name}
+                        </span>
+                        <span className="flex gap-3">
+                          <span><strong>Size:</strong> {formatFileSize(formData.logoFileInfo.size)}</span>
+                          <span><strong>Type:</strong> .{formData.logoFileInfo.extension}</span>
+                        </span>
+                      </div>
                     )}
                     <Input
                       type="url"
