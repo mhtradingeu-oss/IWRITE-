@@ -1,0 +1,196 @@
+You are working on the IWRITE project.
+
+Goal of this turn:
+Transform the existing Admin Console into a **real operations dashboard** for IWRITE, with concrete tools to manage users, plans, monitoring, maintenance, and basic backup/export – plus an AI assistant to help the admin interpret stats and suggest actions.
+
+Important:
+- Auth, FREE/PRO plans, and admin role logic already exist.
+- Admin routes file (`server/adminRoutes.ts`) already exists and must remain the central place for admin APIs.
+- Do NOT break existing public APIs, auth, or plan logic.
+- Keep security: all `/api/admin/*` must stay admin-only.
+
+You MAY:
+- Extend `server/adminRoutes.ts` with a few new endpoints.
+- Extend `client/src/pages/Admin.tsx` and related components.
+- Add small helper components (modals, tables, charts).
+- Reuse existing AI integration for the “Admin AI Assistant”.
+
+You MUST NOT:
+- Rename environment variables or change their meaning.
+- Change JWT/cookie logic.
+- Make breaking DB schema changes. If you need a setting/flag (like maintenance mode), store it in a very small, clearly documented way.
+
+==================================================
+PART 1 – BACKEND: ENSURE ADMIN TOOLS ENDPOINTS EXIST
+==================================================
+
+Open `server/adminRoutes.ts` and check what is already implemented.
+
+We want these capabilities:
+
+1) Users:
+   - `GET /api/admin/users`
+     - Returns a list of users with:
+       - id, email, role, plan, createdAt, dailyUsageCount, dailyUsageDate (if available).
+   - `PUT /api/admin/users/:id/plan`
+     - Change user plan (FREE, PRO_MONTHLY, PRO_YEARLY).
+   - `PUT /api/admin/users/:id/reset-usage`
+     - Reset daily usage fields for that user.
+   - `GET /api/admin/users/export` (NEW, if not present)
+     - Returns a CSV or JSON export of basic user data (id, email, role, plan, createdAt).
+
+2) Stats & Monitoring:
+   - `GET /api/admin/stats`
+     - Already exists or should be added to return:
+       - totalUsers
+       - freeUsers
+       - proUsers
+       - adminUsers
+       - totalDocuments (if cheap to compute)
+       - totalGenerationsToday (if usage table/fields exist)
+       - freeUsageToday
+       - proUsageToday
+
+3) Maintenance Mode (NEW, minimal):
+   - Use a simple config table or key-value storage if available; otherwise, a small in-memory flag is acceptable for now (with a TODO comment).
+   - Endpoints:
+     - `GET /api/admin/maintenance`
+       - Returns `{ enabled: boolean }`.
+     - `PUT /api/admin/maintenance`
+       - Body: `{ enabled: boolean }`
+       - Toggles maintenance mode.
+
+   - The effects of maintenance mode on the rest of the app can remain TODO for now; at minimum, the admin can see and toggle the status in the UI.
+
+4) Health:
+   - We already have `/healthz`. You do NOT need a new route, but the Admin page should be able to fetch and display its status.
+
+All these endpoints must:
+- Use the existing admin auth middleware.
+- Return JSON with simple, documented shapes.
+- Not throw unhandled errors (wrap in try/catch and return 500 with a message).
+
+==================================================
+PART 2 – FRONTEND: STRUCTURE THE ADMIN CONSOLE
+==================================================
+
+In `client/src/pages/Admin.tsx`, redesign as a four-section console:
+
+Tabs (or segmented controls):
+- Overview
+- Users
+- Operations
+- AI Assistant
+
+1) Overview tab:
+   - Fetch `/api/admin/stats` and `/healthz`.
+   - Show cards:
+     - Total Users
+     - FREE Users
+     - PRO Users
+     - Admin Users
+     - Today’s AI generations (if available)
+   - Show a small “System status” card:
+     - Healthz status (ok / degraded / error)
+     - Environment (NODE_ENV) if you have it on frontend, or omit.
+
+2) Users tab:
+   - Users table:
+     - Use `/api/admin/users`.
+     - Columns:
+       - Email
+       - Role (user/admin)
+       - Plan (FREE/PRO_*)
+       - Created
+       - Daily usage (if available)
+     - Add:
+       - Search by email (client-side filter is fine).
+       - Filter by plan (All / FREE / PRO).
+       - Filter by role (All / User / Admin).
+
+   - Row actions:
+     - Change Plan:
+       - Dropdown with FREE / PRO_MONTHLY / PRO_YEARLY.
+       - Calls `PUT /api/admin/users/:id/plan`.
+       - Shows toast and refreshes that row or table.
+     - Reset Usage:
+       - Button with confirmation modal.
+       - Calls `PUT /api/admin/users/:id/reset-usage`.
+
+   - Export:
+     - “Export users (.csv)” button:
+       - Calls `/api/admin/users/export`.
+       - Triggers a file download (or shows the CSV in a new tab).
+
+3) Operations tab:
+   - Maintenance Mode:
+     - Fetch `/api/admin/maintenance`.
+     - Show a toggle switch “Maintenance mode”.
+     - When ON:
+       - show a warning description: “Normal users should see a maintenance page” (even if not fully enforced yet).
+     - When toggled:
+       - Call `PUT /api/admin/maintenance` with the new value.
+
+   - Backup & DB info:
+     - Card “Database Backup”:
+       - Show text with recommended `pg_dump` command using placeholder DB URL.
+       - Example command template (do NOT include secrets):
+         - `pg_dump $DATABASE_URL > backup-$(date +%F).sql`
+       - Make clear that real DB backup is done on the server/host, not directly inside IWRITE.
+
+   - Links:
+     - Optionally add:
+       - “Open Stripe Dashboard” link (just a link; no API needed).
+       - “Open Deployment Guide” link pointing to `DEPLOYMENT.md` (if accessible via docs link).
+
+==================================================
+PART 3 – ADMIN AI ASSISTANT
+==================================================
+
+Create an “AI Assistant” tab:
+
+1) UI:
+   - Textarea for admin prompt.
+   - Suggested prompts as buttons:
+     - “Summarize today’s usage.”
+     - “Identify heavy users.”
+     - “Suggest plan changes.”
+   - Output area to show AI response (scrollable card).
+
+2) Logic:
+   - On load, fetch `/api/admin/stats` and `/api/admin/users` (or a summarized version).
+   - When admin hits one of the suggested prompts:
+     - Build a context string on the frontend, e.g.:
+
+       “Here are the current stats and users (truncated): ... [insert JSON summary] ... The admin asks: [prompt]. Please answer as an admin consultant.”
+
+   - Send this context + prompt to an existing AI endpoint (reuse the same pattern used by AI Writer). For example:
+     - If there is a general `POST /api/ai/generate` or similar, reuse it.
+   - Display the AI’s response in the output area.
+
+3) Constraints:
+   - Do not exceed safe payload sizes; if there are many users, include only aggregated counts or top N.
+   - Handle errors with an inline message and allow retry.
+
+==================================================
+PART 4 – ACCESS CONTROL & VISIBILITY
+==================================================
+
+1) Sidebar:
+   - Ensure `Admin` menu item is only visible to users with `role === "admin"` (already implemented, but re-check).
+
+2) Direct access:
+   - If a non-admin visits `/admin`, show a friendly “Access denied – Admin only” message and/or redirect to `/dashboard`.
+
+3) Security:
+   - All new `/api/admin/*` routes must use the existing admin middleware.
+
+==================================================
+PART 5 – VERIFICATION (WITH TEST USERS)
+==================================================
+
+After implementing the Admin improvements:
+
+1) Run:
+   ```bash
+   npm run build

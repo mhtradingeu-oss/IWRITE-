@@ -20,6 +20,9 @@ export interface Config {
   
   // CORS
   corsOrigin: string | string[];
+  
+  // Admin
+  adminEmail?: string;
 }
 
 function getEnvVar(key: string, defaultValue?: string): string {
@@ -58,6 +61,7 @@ export function loadConfig(): Config {
     aiApiKey: getEnvVar('AI_INTEGRATIONS_OPENAI_API_KEY', 'sk-test'),
     googleStorageBucket: process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID,
     corsOrigin: process.env.CORS_ORIGIN || '*',
+    adminEmail: process.env.ADMIN_EMAIL,
   };
 
   if (nodeEnv === 'production') {

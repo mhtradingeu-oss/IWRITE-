@@ -45,6 +45,14 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
   
+  // Security headers for production
+  if (config.nodeEnv === 'production') {
+    res.header('X-Content-Type-Options', 'nosniff');
+    res.header('X-Frame-Options', 'DENY');
+    res.header('X-XSS-Protection', '1; mode=block');
+    res.header('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -108,6 +116,16 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 (async () => {
+  // Initialize demo accounts (development/staging only)
+  if (config.nodeEnv !== 'production') {
+    try {
+      const { seedDemoAccounts } = await import("./seedDemoAccounts");
+      await seedDemoAccounts();
+    } catch (error) {
+      // Seed is optional, continue if it fails
+    }
+  }
+
   // Health check endpoint (no auth required)
   app.get("/healthz", async (_req: Request, res: Response) => {
     try {

@@ -31,7 +31,8 @@ export function registerAuthRoutes(app: Express) {
 
       // Create user - assign admin role if email matches ADMIN_EMAIL
       const passwordHash = await hashPassword(password);
-      const isAdmin = email === process.env.ADMIN_EMAIL || email === "admin@example.com";
+      const adminEmail = process.env.ADMIN_EMAIL;
+      const isAdmin = adminEmail && email === adminEmail;
       
       const newUser = await db
         .insert(users)

@@ -2,8 +2,17 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { config } from "./config";
 
-// JWT secret - should come from env var
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-key-change-in-production";
+// JWT secret - MUST be set in production
+const JWT_SECRET = (() => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    throw new Error(
+      "CRITICAL: JWT_SECRET environment variable is required in production. " +
+      "Generate with: openssl rand -base64 32"
+    );
+  }
+  return secret || "dev-secret-key-change-in-production";
+})();
 
 export interface JWTPayload {
   userId: string;
