@@ -42,7 +42,7 @@ export function registerBillingRoutes(app: Express) {
       }
 
       if (!process.env.STRIPE_SECRET_KEY) {
-        return res.status(500).json({ error: "Stripe not configured" });
+        return res.status(503).json({ error: "STRIPE_NOT_CONFIGURED", message: "Stripe payment processing is not configured. Please contact the administrator." });
       }
 
       const priceId = planType === "monthly" 
@@ -50,7 +50,7 @@ export function registerBillingRoutes(app: Express) {
         : process.env.STRIPE_PRICE_ID_YEARLY;
 
       if (!priceId) {
-        return res.status(500).json({ error: `Stripe price ID for ${planType} plan not configured` });
+        return res.status(503).json({ error: "STRIPE_NOT_CONFIGURED", message: `Stripe price ID for ${planType} plan is not configured. Please contact the administrator.` });
       }
 
       // Get frontend URL from environment or infer from request

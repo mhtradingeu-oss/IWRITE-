@@ -2,10 +2,12 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useLanguage } from "@/components/LanguageProvider";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Mail, CreditCard, Zap, Calendar, Shield, ArrowRight, Loader2 } from "lucide-react";
+import { LogOut, Mail, CreditCard, Zap, Calendar, Shield, ArrowRight, Loader2, AlertTriangle } from "lucide-react";
 import { useLocation } from "wouter";
+import { startUpgrade } from "@/lib/upgradeHelper";
 
 const translations = {
   en: {
@@ -164,24 +166,11 @@ export default function Settings() {
 
   const upgradeMutation = useMutation({
     mutationFn: async (planType: "monthly" | "yearly") => {
-      const response = await fetch("/api/billing/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planType }),
-        credentials: "include",
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create checkout session");
+      const result = await startUpgrade(planType);
+      if (result.state === "error" || result.state === "not-configured") {
+        throw new Error(result.error || "Failed to start upgrade");
       }
-
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
-      }
+      return result;
     },
     onError: (error: any) => {
       toast({
@@ -190,6 +179,23 @@ export default function Settings() {
         variant: "destructive",
       });
     },
+  });
+
+  const [stripeConfigError, setStripeConfigError] = useQuery({
+    queryKey: ["/api/billing/create-checkout-session"],
+    queryFn: async () => {
+      const response = await fetch("/api/billing/create-checkout-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planType: "monthly" }),
+        credentials: "include",
+      });
+      if (response.status === 503) {
+        return { stripeConfigured: false };
+      }
+      return { stripeConfigured: true };
+    },
+    enabled: false,
   });
 
   if (isLoading) {

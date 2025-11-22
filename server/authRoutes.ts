@@ -45,6 +45,7 @@ export function registerAuthRoutes(app: Express) {
         id: user.id,
         email: user.email,
         plan: user.plan,
+        role: user.role || "user",
       });
 
       res.cookie("token", token, {
@@ -59,6 +60,7 @@ export function registerAuthRoutes(app: Express) {
           id: user.id,
           email: user.email,
           plan: user.plan,
+          role: user.role || "user",
         },
       });
     } catch (error: any) {
@@ -90,6 +92,7 @@ export function registerAuthRoutes(app: Express) {
         id: user.id,
         email: user.email,
         plan: user.plan,
+        role: user.role || "user",
       });
 
       res.cookie("token", token, {
@@ -104,6 +107,7 @@ export function registerAuthRoutes(app: Express) {
           id: user.id,
           email: user.email,
           plan: user.plan,
+          role: user.role || "user",
         },
       });
     } catch (error: any) {
@@ -118,11 +122,32 @@ export function registerAuthRoutes(app: Express) {
   });
 
   // Get current user
-  app.get("/auth/me", (req: Request, res: Response) => {
+  app.get("/auth/me", async (req: Request, res: Response) => {
     if (!req.user) {
       return res.status(401).json({ error: "Not authenticated" });
     }
-    res.json({ user: req.user });
+    
+    // Fetch full user record to get latest role
+    try {
+      const result = await db.select().from(users).where(eq(users.id, req.user.id));
+      if (result.length > 0) {
+        const user = result[0];
+        res.json({
+          user: {
+            id: user.id,
+            email: user.email,
+            plan: user.plan,
+            role: user.role,
+            dailyUsageCount: user.dailyUsageCount,
+            dailyUsageDate: user.dailyUsageDate,
+          },
+        });
+      } else {
+        res.json({ user: req.user });
+      }
+    } catch (error) {
+      res.json({ user: req.user });
+    }
   });
 
   // Upgrade plan
@@ -162,6 +187,7 @@ export function registerAuthRoutes(app: Express) {
         id: user.id,
         email: user.email,
         plan: user.plan,
+        role: user.role || "user",
       });
 
       res.cookie("token", token, {
@@ -176,6 +202,7 @@ export function registerAuthRoutes(app: Express) {
           id: user.id,
           email: user.email,
           plan: user.plan,
+          role: user.role || "user",
         },
       });
     } catch (error: any) {

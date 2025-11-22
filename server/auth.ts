@@ -9,6 +9,7 @@ export interface JWTPayload {
   userId: string;
   email: string;
   plan: string;
+  role: string;
   iat: number;
   exp: number;
 }
@@ -17,6 +18,7 @@ export interface AuthUser {
   id: string;
   email: string;
   plan: string;
+  role?: string;
 }
 
 /**
@@ -45,6 +47,7 @@ export function createToken(user: AuthUser): string {
     userId: user.id,
     email: user.email,
     plan: user.plan,
+    role: user.role || "user",
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60, // 7 days
   };
