@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Music, Send, RefreshCw, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Music, Send, RefreshCw, ThumbsUp, ThumbsDown, Lock, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,11 +16,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/components/LanguageProvider";
+import { UpgradeModal } from "@/components/UpgradeModal";
+import { isFree } from "@/lib/auth-helpers";
 
 const translations = {
   en: {
     songwriter: "Songwriter",
     subtitle: "Create and refine song lyrics with AI assistance",
+    proFeatureOnly: "PRO Feature Only",
+    upgradeToPro: "Upgrade to PRO to unlock Songwriter",
+    songwriterDescription: "The Songwriter tool is only available for PRO users. Upgrade now to create beautiful song lyrics in Arabic, German, and English.",
     songIdea: "Song Idea",
     songIdeaPlaceholder: "Write your song idea, story, emotions, key words...",
     language: "Language",
@@ -69,6 +74,9 @@ const translations = {
   ar: {
     songwriter: "كاتب الأغنية",
     subtitle: "إنشاء وتحسين كلمات الأغنية بمساعدة الذكاء الاصطناعي",
+    proFeatureOnly: "ميزة PRO فقط",
+    upgradeToPro: "ترقية إلى PRO لفتح Songwriter",
+    songwriterDescription: "أداة Songwriter متاحة فقط لمستخدمي PRO. قم بالترقية الآن لإنشاء كلمات أغنية جميلة باللغة العربية والألمانية والإنجليزية.",
     songIdea: "فكرة الأغنية",
     songIdeaPlaceholder: "اكتب فكرة الأغنية، القصة، المشاعر، الكلمات الرئيسية...",
     language: "اللغة",
@@ -117,6 +125,9 @@ const translations = {
   de: {
     songwriter: "Songwriter",
     subtitle: "Erstellen und verfeinern Sie Songtexte mit KI-Unterstützung",
+    proFeatureOnly: "Nur PRO-Funktion",
+    upgradeToPro: "Upgrade zu PRO, um Songwriter freizuschalten",
+    songwriterDescription: "Das Songwriter-Tool ist nur für PRO-Benutzer verfügbar. Führen Sie jetzt ein Upgrade durch, um wunderschöne Songtexte auf Arabisch, Deutsch und Englisch zu erstellen.",
     songIdea: "Songidee",
     songIdeaPlaceholder: "Schreiben Sie Ihre Songidee, Geschichte, Gefühle, Schlüsselwörter...",
     language: "Sprache",
@@ -178,6 +189,20 @@ export default function Songwriter() {
   const { toast } = useToast();
   const t = translations[language];
   const isRTL = language === "ar";
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+
+  // Fetch user data for plan check
+  const { data: user } = useQuery({
+    queryKey: ["/auth/me"],
+    queryFn: async () => {
+      const response = await fetch("/auth/me", { credentials: "include" });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.user;
+    },
+  });
+
+  const userIsFree = isFree(user?.plan);
 
   const [songIdea, setSongIdea] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState(language);
@@ -283,6 +308,39 @@ export default function Songwriter() {
       </div>
     );
   };
+
+  // Show upgrade modal if user is FREE
+  if (userIsFree) {
+    return (
+      <div className="flex flex-col h-full items-center justify-center p-6 gap-6">
+        <Card className="w-full max-w-md border-2 border-yellow-500/20">
+          <CardHeader className="text-center space-y-2">
+            <div className="flex justify-center mb-2">
+              <Crown className="h-12 w-12 text-yellow-500" />
+            </div>
+            <CardTitle className="text-2xl">{t.proFeatureOnly}</CardTitle>
+          </CardHeader>
+          <CardContent className="text-center space-y-6">
+            <p className="text-muted-foreground">{t.songwriterDescription}</p>
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={() => setUpgradeModalOpen(true)}
+              data-testid="button-upgrade-songwriter"
+            >
+              <Crown className="h-4 w-4 mr-2" />
+              {t.upgradeToPro}
+            </Button>
+          </CardContent>
+        </Card>
+        <UpgradeModal
+          open={upgradeModalOpen}
+          onOpenChange={setUpgradeModalOpen}
+          onUpgrade={() => window.location.href = "/pricing"}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full gap-4 p-6 bg-background overflow-hidden">
