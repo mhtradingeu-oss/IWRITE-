@@ -85,27 +85,23 @@ function App() {
 
   if (!user) {
     return (
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <ThemeProvider>
-            <Login />
-            <Toaster />
-          </ThemeProvider>
-        </TooltipProvider>
-      </QueryClientProvider>
+      <TooltipProvider>
+        <ThemeProvider>
+          <Login />
+          <Toaster />
+        </ThemeProvider>
+      </TooltipProvider>
     );
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <ThemeProvider>
-          <LanguageProvider>
-            <AppContent />
-          </LanguageProvider>
-        </ThemeProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <TooltipProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <AppContent />
+        </LanguageProvider>
+      </ThemeProvider>
+    </TooltipProvider>
   );
 }
 
