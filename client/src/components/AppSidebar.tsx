@@ -1,5 +1,6 @@
-import { Home, FileText, Upload, Layout, Wand2, Settings, Archive, FolderOpen, Tag, Search, Sparkles, Music } from "lucide-react";
+import { Home, FileText, Upload, Layout, Wand2, Settings, Archive, FolderOpen, Tag, Search, Sparkles, Music, Shield } from "lucide-react";
 import { useLocation, Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import {
   Sidebar,
   SidebarContent,
@@ -129,6 +130,19 @@ export function AppSidebar() {
   const [location] = useLocation();
   const { language } = useLanguage();
   const t = translations[language];
+  
+  // Check if user is admin
+  const { data: user } = useQuery({
+    queryKey: ["/auth/me"],
+    queryFn: async () => {
+      const response = await fetch("/auth/me", { credentials: "include" });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.user;
+    },
+  });
+  
+  const isAdmin = user?.email === "mhtrading@gmail.com";
 
   return (
     <Sidebar>
@@ -200,7 +214,15 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-sidebar-border">
+      <SidebarFooter className="p-4 border-t border-sidebar-border space-y-2">
+        {isAdmin && (
+          <Button variant="ghost" size="sm" className="w-full justify-start" asChild data-testid="link-admin">
+            <Link href="/admin">
+              <Shield className="h-4 w-4" />
+              <span>Admin</span>
+            </Link>
+          </Button>
+        )}
         <Button variant="ghost" size="sm" className="w-full justify-start" asChild data-testid="button-settings">
           <Link href="/settings">
             <Settings className="h-4 w-4" />

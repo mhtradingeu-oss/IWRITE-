@@ -50,6 +50,7 @@ async function seedUsers() {
       await db.insert(users).values({
         email: SEED_FREE_EMAIL,
         passwordHash,
+        role: "user",
         plan: "FREE",
         dailyUsageCount: 0,
         dailyUsageDate: null,
@@ -57,8 +58,8 @@ async function seedUsers() {
       console.log("   ✓ Created successfully");
     }
 
-    // Seed PRO user
-    console.log(`\n📝 PRO User: ${SEED_PRO_EMAIL}`);
+    // Seed PRO user (also set as admin)
+    console.log(`\n📝 PRO User (Admin): ${SEED_PRO_EMAIL}`);
     const existingProUser = await db
       .select()
       .from(users)
@@ -66,16 +67,23 @@ async function seedUsers() {
 
     if (existingProUser.length > 0) {
       console.log("   ✓ Already exists (skipping)");
+      // Update to admin if not already
+      const proUser = existingProUser[0];
+      if (proUser.role !== "admin") {
+        console.log("   ℹ Updating role to admin...");
+        await db.update(users).set({ role: "admin" }).where(eq(users.email, SEED_PRO_EMAIL));
+      }
     } else {
       const passwordHash = await bcrypt.hash(SEED_PRO_PASSWORD, 10);
       await db.insert(users).values({
         email: SEED_PRO_EMAIL,
         passwordHash,
+        role: "admin",
         plan: SEED_PRO_PLAN as any,
         dailyUsageCount: 0,
         dailyUsageDate: null,
       });
-      console.log("   ✓ Created successfully");
+      console.log("   ✓ Created successfully (with admin role)");
     }
 
     console.log("\n✅ Seeding complete!");

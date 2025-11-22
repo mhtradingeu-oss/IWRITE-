@@ -1,0 +1,472 @@
+Updates user’s plan field to PRO_MONTHLY / PRO_YEARLY.
+
+
+Sets plan_started_at and plan_expires_at as appropriate.
+
+
+Ensures that daily limit logic treats PRO users as unlimited.
+
+
+
+
+UI behavior (Settings & Plans pages)
+
+
+
+
+For Settings page (Subscription section) and /plans page:
+
+
+Make both use a shared client-side function, e.g. startUpgrade(planType).
+
+
+This function:
+
+
+Calls POST /api/billing/create-checkout-session.
+
+
+Handles states:
+
+
+If response = STRIPE_NOT_CONFIGURED:
+
+
+Show a clear, styled banner: “Stripe is not configured. Please contact the administrator.”
+
+
+
+
+While waiting: show loading/spinner and disable buttons.
+
+
+On success: redirect window.location.href = url.
+
+
+On network/server error: show a friendly error toast, not a crash.
+
+
+
+
+
+
+
+
+On the success page (/upgrade/success or similar):
+
+
+Show “Upgrade successful” message.
+
+
+Trigger a refetch of the current user data (/auth/me or equivalent).
+
+
+Ensure the plan shown in Settings changes to PRO after upgrade.
+
+
+
+
+For FREE users:
+
+
+Show upgrade CTA + limit stats.
+
+
+
+
+For PRO users:
+
+
+Hide or disable upgrade CTA.
+
+
+Show “You are on PRO” or equivalent status.
+
+
+
+
+
+🧩 PART 3 — SUPER ADMIN PANEL (OWNER CONTROL)
+We need a simple but effective Super Admin page.
+
+
+Roles
+
+
+
+
+In the users table, ensure there is a role field (string):
+
+
+"user" (default)
+
+
+"admin" for super admins
+
+
+
+
+Make sure the owner account (mhtrading@gmail.com) has role = "admin":
+
+
+Either via seed script or a one-time SQL/migration.
+
+
+
+
+
+
+Admin middleware
+
+
+
+
+Implement requireAdmin middleware server-side:
+
+
+Uses existing auth middleware to get current user.
+
+
+If user.role !== "admin":
+
+
+Return 403 with { error: "FORBIDDEN_ADMIN_ONLY" }.
+
+
+
+
+
+
+
+
+Admin API endpoints (under /api/admin)
+
+
+Implement endpoints like:
+
+
+GET /api/admin/users
+
+
+Admin-only.
+
+
+Returns list of users with:
+
+
+id, email, role, plan, created_at
+
+
+dailyUsageCount, dailyUsageDate
+
+
+
+
+
+
+PUT /api/admin/users/:id/plan
+
+
+Admin-only.
+
+
+Body: { plan: "FREE" | "PRO_MONTHLY" | "PRO_YEARLY" }.
+
+
+Uses upgradeUserToPlan helper or equivalent for FREE→PRO changes.
+
+
+
+
+PUT /api/admin/users/:id/reset-usage (optional)
+
+
+Admin-only.
+
+
+Resets daily usage counters for that user (e.g. set count = 0).
+
+
+
+
+
+
+Admin frontend
+
+
+
+
+Add an Admin route, e.g. /admin.
+
+
+Only show the Admin menu link in the UI when current user has role === "admin".
+
+
+For example, a small “Admin” link in the sidebar or Settings page.
+
+
+
+
+Admin page should show:
+
+
+A table of users:
+
+
+Email, role, plan, createdAt, usageToday
+
+
+Actions:
+
+
+Change plan via dropdown.
+
+
+Reset daily usage (if endpoint implemented).
+
+
+
+
+
+
+Use React Query to fetch /api/admin/users, and mutations for plan/usage updates.
+
+
+Show success/error toasts after admin actions.
+
+
+
+
+
+🧩 PART 4 — DOCUMENTATION & SAFETY
+
+
+Update DEPLOYMENT.md
+
+
+Add/extend a Stripe & Billing section:
+
+
+Env vars:
+
+
+STRIPE_SECRET_KEY
+
+
+STRIPE_PUBLIC_KEY
+
+
+STRIPE_PRICE_ID_MONTHLY
+
+
+STRIPE_PRICE_ID_YEARLY (if used)
+
+
+STRIPE_WEBHOOK_SECRET (if webhooks used)
+
+
+
+
+Steps:
+
+
+How to create products/prices in Stripe.
+
+
+How to set these env vars.
+
+
+What URLs to use for success/cancel/webhook.
+
+
+
+
+Mention:
+
+
+In environments where Stripe is not configured, upgrade buttons will display a “Stripe not configured” warning and do nothing dangerous.
+
+
+
+
+Add a short Admin Panel section:
+
+
+Explain:
+
+
+role field and admin user.
+
+
+How to set the owner as admin (e.g., via seed or manual DB update).
+
+
+Admin capabilities (view users, change plan, reset usage).
+
+
+
+
+
+
+Security
+
+
+
+
+NEVER log Stripe secret keys.
+
+
+Protect all admin routes with requireAdmin.
+
+
+Ensure billing endpoints are protected by auth and safe against unauthenticated access.
+
+
+
+🧩 PART 5 — FULL VERIFICATION
+After implementing these changes:
+
+
+Run:
+npm run build
+
+
+
+Confirm build passes with no errors.
+
+
+
+
+Start server (dev or prod as appropriate here):
+
+
+npm run dev
+
+
+Or: NODE_ENV=production npm run start
+
+
+
+
+Health check:
+curl http://localhost:5000/healthz
+
+
+
+Ensure { status: "ok", ... }.
+
+
+
+
+Browser tests (describe them in your summary):
+
+
+Login as FREE user: test@example.com / Test1234
+
+
+Go to Settings → Subscription:
+
+
+See plan = FREE, limit stats, upgrade CTA.
+
+
+Click Upgrade:
+
+
+If Stripe not configured:
+
+
+See “Stripe not configured” warning, no crash.
+
+
+
+
+If Stripe test keys are configured (you can simulate or describe), verify redirect and plan upgrade.
+
+
+
+
+
+
+
+
+Login as PRO user: mhtrading@gmail.com / test@123
+
+
+Settings shows PRO.
+
+
+No FREE limit enforcement.
+
+
+
+
+Login as admin (mhtrading@gmail.com if role=admin):
+
+
+Access /admin:
+
+
+See users list.
+
+
+Change FREE user’s plan to PRO and back.
+
+
+Reset usage (if implemented).
+
+
+Confirm changes show up in Settings and in limit behavior.
+
+
+
+
+
+
+Quickly sanity-check:
+
+
+Dashboard, AI Writer, Songwriter, Templates, Style Profiles, Topics, Archive, File Uploads:
+
+
+All open and function without new runtime errors.
+
+
+
+
+
+
+
+
+Final summary (what you must output):
+
+
+List of key files changed/added (backend + frontend).
+
+
+Final behavior of the upgrade flow (including “Stripe not configured” state).
+
+
+How the Admin panel works (routes, permissions, capabilities).
+
+
+Results of npm run build and /healthz.
+
+
+Confirmation that core app flows remain stable.
+
+
+
+
+The objective:
+Complete the upgrade and admin experience in a secure, stable, production-ready way, without touching the QueryClientProvider setup again and without breaking any existing functionality.
+
+---
+
+بعد ما تلصق هذا البرومبت في Replit وتخلّي الـ Agent يشتغل:
+
+1. جرّب الدخول بحساب FREE و PRO.  
+2. جرّب زر Upgrade، ولو Stripe ما هو مفعّل تشوف رسالة واضحة بدون كراش.  
+3. جرّب صفحة الـ Admin بالحساب `mhtrading@gmail.com` (بعد ما يكون role = admin).  
+
+وبعدين أرسل لي ملخّصه أو أي لقطة شاشة، وأساعدك أراجع النتيجة خطوة خطوة قبل ما ننتقل لمرحلة الاستضافة الحقيقية وربط الـ IBAN والـ Stripe الفعلي 💳🚀.

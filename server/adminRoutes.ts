@@ -5,18 +5,21 @@ import { eq } from "drizzle-orm";
 import { requireAuth } from "./index";
 
 // Middleware to require admin access
-function requireAdmin(req: Request, res: Response, next: NextFunction) {
+async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.user) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  // Check if user is admin (hardcoded for now, can be extended with role field)
-  const adminEmail = process.env.ADMIN_EMAIL || "mhtrading@gmail.com";
-  if (req.user.email !== adminEmail) {
-    return res.status(403).json({ error: "FORBIDDEN_ADMIN_ONLY" });
+  // Check if user is admin by querying database
+  try {
+    const userRecord = await db.select().from(users).where(eq(users.id, req.user.id));
+    if (userRecord.length === 0 || userRecord[0].role !== "admin") {
+      return res.status(403).json({ error: "FORBIDDEN_ADMIN_ONLY" });
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ error: "Failed to verify admin status" });
   }
-
-  next();
 }
 
 export function registerAdminRoutes(app: Express) {
