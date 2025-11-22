@@ -104,7 +104,7 @@ export function HomeHeader() {
           </Button>
 
           <Button
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/login")}
             data-testid="button-home-header-cta"
             className="hidden sm:inline-flex"
           >

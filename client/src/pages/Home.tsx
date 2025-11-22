@@ -326,7 +326,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Button
               size="lg"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/login")}
               data-testid="button-home-cta-workspace"
               className="w-full sm:w-auto"
             >
@@ -370,7 +370,7 @@ export default function Home() {
                     variant="ghost"
                     size="sm"
                     className="mt-4 w-fit"
-                    onClick={() => navigate("/dashboard")}
+                    onClick={() => navigate("/login")}
                     data-testid={`button-feature-${feature.name.toLowerCase().replace(/\s+/g, '-')}`}
                   >
                     Open in App →
@@ -466,7 +466,7 @@ export default function Home() {
                 </ul>
                 <Button
                   className="w-full"
-                  onClick={() => navigate(plan.name === "Free" ? "/dashboard" : "/settings")}
+                  onClick={() => navigate("/login")}
                   data-testid={`button-pricing-${plan.name.toLowerCase()}`}
                 >
                   {plan.cta}
@@ -508,7 +508,7 @@ export default function Home() {
           </p>
           <Button
             size="lg"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/login")}
             data-testid="button-home-final-cta"
           >
             {t.cta.button}
