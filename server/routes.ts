@@ -11,6 +11,7 @@ import { registerBillingRoutes } from "./billingRoutes";
 import { registerAdminRoutes } from "./adminRoutes";
 import { requireAuth } from "./index";
 import { checkDailyLimit } from "./limitMiddleware";
+import { getPublicCompanyInfo } from "./companyConfig";
 
 // Initialize Google Cloud Storage for file uploads (only in production)
 let bucket: any = null;
@@ -59,6 +60,16 @@ export async function registerRoutes(app: Express) {
       status: "ok",
       timestamp: new Date().toISOString()
     });
+  });
+
+  // Public company info endpoint (no auth required)
+  app.get("/api/public/company-info", async (_req: Request, res: Response) => {
+    try {
+      const companyInfo = getPublicCompanyInfo();
+      res.json(companyInfo);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
 
   // Protected routes - require authentication

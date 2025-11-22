@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { LanguageProvider } from "@/components/LanguageProvider";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Header } from "@/components/Header";
+import { AppFooter } from "@/components/AppFooter";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Documents from "@/pages/Documents";
@@ -24,6 +25,10 @@ import Plans from "@/pages/Plans";
 import Settings from "@/pages/Settings";
 import UpgradeSuccess from "@/pages/UpgradeSuccess";
 import Admin from "@/pages/Admin";
+import Imprint from "@/pages/legal/Imprint";
+import Privacy from "@/pages/legal/Privacy";
+import Terms from "@/pages/legal/Terms";
+import PaymentPolicy from "@/pages/legal/PaymentPolicy";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -45,6 +50,10 @@ function Router() {
       <Route path="/settings" component={Settings} />
       <Route path="/upgrade/success" component={UpgradeSuccess} />
       <Route path="/admin" component={Admin} />
+      <Route path="/legal/imprint" component={Imprint} />
+      <Route path="/legal/privacy" component={Privacy} />
+      <Route path="/legal/terms" component={Terms} />
+      <Route path="/legal/payment" component={PaymentPolicy} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -58,14 +67,17 @@ function AppContent() {
 
   return (
     <SidebarProvider style={style as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-auto bg-background">
-            <Router />
-          </main>
+      <div className="flex flex-col h-screen w-full">
+        <div className="flex flex-1 overflow-hidden">
+          <AppSidebar />
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <Header />
+            <main className="flex-1 overflow-auto bg-background">
+              <Router />
+            </main>
+          </div>
         </div>
+        <AppFooter />
       </div>
       <Toaster />
     </SidebarProvider>
