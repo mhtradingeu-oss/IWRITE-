@@ -1,8 +1,8 @@
-# HAIROTICMEN Writer
+# IWRITE
 
 ## Overview
 
-HAIROTICMEN Writer is an AI-powered document writing workspace designed for professional content creation with comprehensive multi-language support (Arabic, English, German). The application provides intelligent document generation, template management, style profiles, and automated quality assurance checks for various document types including blogs, proposals, contracts, policies, presentations, product pages, and social media content.
+IWRITE is an AI-powered document writing workspace designed for professional content creation with comprehensive multi-language support (Arabic, English, German). The application provides intelligent document generation, template management, style profiles, and automated quality assurance checks for various document types including blogs, proposals, contracts, policies, presentations, product pages, and social media content.
 
 ## User Preferences
 
