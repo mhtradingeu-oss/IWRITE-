@@ -9,11 +9,13 @@ import { exportToMarkdown, exportToDOCX, exportToPDF } from "./export";
 
 // Initialize Google Cloud Storage for file uploads (only in production)
 let bucket: any = null;
-if (process.env.NODE_ENV === "production" && process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
-  const { Storage } = await import("@google-cloud/storage");
-  const gcsStorage = new Storage();
-  bucket = gcsStorage.bucket(process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID);
-}
+(async () => {
+  if (process.env.NODE_ENV === "production" && process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID) {
+    const { Storage } = await import("@google-cloud/storage");
+    const gcsStorage = new Storage();
+    bucket = gcsStorage.bucket(process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID);
+  }
+})();
 
 // Configure multer for file uploads
 const upload = multer({
@@ -129,8 +131,8 @@ export async function registerRoutes(app: Express) {
         documentType,
         language,
         prompt,
-        template,
-        styleProfile,
+        template: template ? { header: template.header ?? undefined, footer: template.footer ?? undefined } : undefined,
+        styleProfile: styleProfile ? { tone: styleProfile.tone, voice: styleProfile.voice, guidelines: styleProfile.guidelines ?? undefined } : undefined,
         sourceContent,
       });
 
@@ -199,7 +201,7 @@ export async function registerRoutes(app: Express) {
       const rewrittenContent = await rewriteDocument({
         content: document.content,
         language: document.language || "en",
-        styleProfile,
+        styleProfile: styleProfile ? { tone: styleProfile.tone, voice: styleProfile.voice, guidelines: styleProfile.guidelines ?? undefined } : undefined,
         removeDuplication: removeDuplication || false,
       });
 
@@ -244,7 +246,7 @@ export async function registerRoutes(app: Express) {
         content: document.content,
         sourceLanguage: document.language || "en",
         targetLanguage,
-        styleProfile,
+        styleProfile: styleProfile ? { tone: styleProfile.tone, voice: styleProfile.voice, guidelines: styleProfile.guidelines ?? undefined } : undefined,
       });
 
       // Create new document with translation
