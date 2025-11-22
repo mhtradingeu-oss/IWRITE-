@@ -9,9 +9,9 @@ import { LanguageProvider } from "@/components/LanguageProvider";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Header } from "@/components/Header";
 import { AppFooter } from "@/components/AppFooter";
-import Home from "@/pages/Home";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
+import RootPage from "@/pages/RootPage";
 import Documents from "@/pages/Documents";
 import DocumentEditor from "@/pages/DocumentEditor";
 import Uploads from "@/pages/Uploads";
@@ -33,9 +33,10 @@ import Terms from "@/pages/legal/Terms";
 import PaymentPolicy from "@/pages/legal/PaymentPolicy";
 import NotFound from "@/pages/not-found";
 
-function Router({ isAuthenticated }: { isAuthenticated: boolean }) {
+function Router() {
   return (
     <Switch>
+      <Route path="/" component={RootPage} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/ai-writer" component={AIWriter} />
       <Route path="/songwriter" component={Songwriter} />
@@ -56,11 +57,6 @@ function Router({ isAuthenticated }: { isAuthenticated: boolean }) {
       <Route path="/legal/privacy" component={Privacy} />
       <Route path="/legal/terms" component={Terms} />
       <Route path="/legal/payment" component={PaymentPolicy} />
-      {isAuthenticated ? (
-        <Route path="/" component={Dashboard} />
-      ) : (
-        <Route path="/" component={Home} />
-      )}
       <Route component={NotFound} />
     </Switch>
   );
@@ -80,7 +76,7 @@ function AppContent({ isAuthenticated }: { isAuthenticated: boolean }) {
           <div className="flex flex-col flex-1 overflow-hidden">
             {isAuthenticated && <Header />}
             <main className="flex-1 overflow-auto bg-background">
-              <Router isAuthenticated={isAuthenticated} />
+              <Router />
             </main>
           </div>
         </div>
