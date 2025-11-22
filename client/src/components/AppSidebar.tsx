@@ -90,7 +90,7 @@ const mainItems = [
   },
   {
     title: "uploads",
-    url: "/uploads",
+    url: "/file-uploads",
     icon: Upload,
   },
 ];
