@@ -1,0 +1,239 @@
+You are working on the IWRITE project.
+
+CURRENT STATUS (IMPORTANT):
+
+- Auth, FREE/PAID plans, daily limits, seeding, and documentation are complete and stable.
+- The Settings page shows:
+  - Current plan (FREE/PRO)
+  - Daily usage stats & limit
+  - Upgrade banner & “Upgrade to PRO” button
+- A Plans page and basic upgrade UI exist.
+- When clicking “Upgrade to PRO Now” with Stripe not configured, the UI shows:
+  - “Upgrade Failed – Stripe not configured”
+  which is good as a safe fallback.
+- We want to COMPLETE the internal flows and admin tooling, **without breaking anything already working.**
+
+🎯 OVERALL GOAL
+
+1) Finalize the **upgrade/plan flow** end-to-end:
+   - Clean states for: not configured, loading, success, failure.
+   - Stripe integration prepared and testable (with test keys) but safe when not configured.
+   - Consistent UX between Settings and Plans pages.
+
+2) Implement a **Super Admin panel** that allows an admin user to:
+   - View all users, their plans, usage, and status.
+   - Manually change a user’s plan (FREE ↔ PRO).
+   - Inspect usage stats (daily counts).
+   - View key app configuration values (like FREE_DAILY_LIMIT).
+   - Trigger admin-friendly actions (e.g., reset usage for a user).
+   (No need for heavy multi-tenant features, just a single “owner admin” view.)
+
+3) Run a full **verification pass** (build + dev + flows) and confirm that the app is production-stable.
+
+🔒 CRITICAL CONSTRAINTS
+
+- DO NOT rename or remove existing:
+  - Env vars (`FREE_DAILY_LIMIT`, `SEED_FREE_USER_EMAIL`, `SEED_PRO_USER_EMAIL`, etc.).
+  - Plan names (`FREE`, `PRO_MONTHLY`, `PRO_YEARLY`, etc.).
+  - Existing routes and components (AI Writer, Songwriter, Templates, Style Profiles, Topics, Archive).
+- Only extend and harden. No destructive refactors.
+- Keep the current behavior “Upgrade Failed – Stripe not configured” when Stripe is not set up, but make it part of a clear and intentional logic.
+
+---
+
+🧩 PART 1 — UPGRADE FLOW & UI STATES (WITHOUT BREAKING ANYTHING)
+
+1) Upgrade Button Behavior (Settings & /plans)
+
+- Inspect the current upgrade buttons in:
+  - Settings page (Subscription section)
+  - Plans page (`/plans`)
+- Make sure both:
+  - Call a single shared function (e.g. `startUpgrade(planType)`).
+  - That function:
+    - Checks whether Stripe is configured (see Part 2).
+    - Calls the backend to create a checkout session when Stripe is available.
+    - Handles all client-side states:
+      - loading, success, failure, not configured.
+
+2) UI States
+
+- Define and implement clear UI states for the Upgrade section:
+  - **Not Configured**:
+    - If Stripe env vars are missing:
+      - Disable upgrade buttons.
+      - Show a clear, non-scary banner:
+        - “Stripe is not configured yet. Please contact your administrator.”
+      - The existing “Upgrade Failed – Stripe not configured” behavior can be reused but make it intentional and styled as a warning, not a crash.
+  - **Loading**:
+    - When user clicks upgrade:
+      - Button shows loading state (spinner / disabled).
+  - **Redirecting to Stripe**:
+    - Once the URL is returned from backend:
+      - Use `window.location.href = url`.
+  - **Error**:
+    - If backend returns an error:
+      - Show an inline error message or toast:
+        - e.g. “Upgrade failed. Please try again or contact support.”
+  - **Success**:
+    - After Stripe redirects back (success page):
+      - Show a “Upgrade successful” message.
+      - Re-fetch user info (`/auth/me` or `/api/account/me`) so plan updates in UI.
+
+3) Ensure that:
+   - FREE users see the upgrade CTA.
+   - PRO users:
+     - Do NOT see “Upgrade to PRO” (or it is disabled/hidden).
+     - See a “You are on PRO” status instead.
+
+---
+
+🧩 PART 2 — STRIPE INTEGRATION (SAFE & CONFIG-GATED)
+
+We want Stripe integration ready and testable, but SAFE when not configured.
+
+1) Stripe Setup
+
+- Use the `stripe` Node SDK if not already installed.
+- Read env variables:
+  - `STRIPE_SECRET_KEY`
+  - `STRIPE_PRICE_ID_MONTHLY`
+  - `STRIPE_PRICE_ID_YEARLY` (optional)
+- Implement a small config helper:
+  - `isStripeConfigured()` that returns true only if required env vars are present.
+- DO NOT expose secret keys to the frontend.
+
+2) Backend Endpoints
+
+Implement or refine a minimal set of billing endpoints (if not already present), for example:
+
+- `POST /api/billing/create-checkout-session`
+  - Authenticated.
+  - Request body: `{ plan: "monthly" | "yearly" }`.
+  - If `!isStripeConfigured()`:
+    - Return a 400/503 with a machine-readable code `"STRIPE_NOT_CONFIGURED"`.
+  - Else:
+    - Create a Checkout Session using the right price ID.
+    - Include user id in `client_reference_id` or metadata.
+    - Success URL: `${FRONTEND_URL}/upgrade/success?session_id=...`
+    - Cancel URL: `${FRONTEND_URL}/plans?canceled=true`
+    - Return `{ url: session.url }` to the frontend.
+
+- (Optional) `POST /api/billing/webhook`
+  - If feasible in this environment, handle Stripe webhooks:
+    - Verify signature with `STRIPE_WEBHOOK_SECRET`.
+    - On relevant events (e.g., `checkout.session.completed`, `invoice.paid`):
+      - Map session to IWRITE user.
+      - Call a helper to set the user’s plan to PRO.
+
+If webhooks are too complex in this environment, you may implement a simpler approach:
+- On the success page, call an endpoint that:
+  - Fetches the checkout session from Stripe by `session_id`.
+  - If successful, upgrade the user.
+- Document clearly which approach you implemented.
+
+3) Plan Upgrade Helper
+
+- Implement or reuse a helper function on the server:
+  - `upgradeUserToPlan(userId, planType)`:
+    - Updates plan field (e.g. `PRO_MONTHLY` vs `PRO_YEARLY`).
+    - Sets `plan_started_at` and/or `plan_expires_at` as appropriate.
+- Make sure daily limit logic:
+  - FREE users: limited by `FREE_DAILY_LIMIT`.
+  - PRO users: no daily limit checks.
+
+4) DEPLOYMENT.md Updates
+
+- Add / update a “Stripe & Billing” section in DEPLOYMENT.md:
+  - Document:
+    - `STRIPE_SECRET_KEY`
+    - `STRIPE_PRICE_ID_MONTHLY`
+    - `STRIPE_PRICE_ID_YEARLY` (if used)
+    - Optional `STRIPE_WEBHOOK_SECRET`
+  - Explain:
+    - How to create products/prices in Stripe.
+    - How to set env vars.
+    - That in non-configured environments, upgrade buttons show “Stripe not configured” and do nothing harmful.
+
+---
+
+🧩 PART 3 — SUPER ADMIN PANEL (OWNER CONTROL)
+
+We need a **Super Admin page** that lets the app owner manage users and settings.
+
+1) Data Model for Admin
+
+- If not already present, extend `users` table with a simple role field:
+  - `role` (e.g. `"user"` | `"admin"`)
+  - Default to `"user"`.
+- Ensure the owner user (`mhtrading@gmail.com`) is set to `role = "admin"` via:
+  - Seed script or manual update in DB.
+- This change must be backwards-compatible.
+
+2) Auth & Middleware
+
+- Implement an `requireAdmin` middleware on the server that:
+  - Uses existing auth middleware to get current user.
+  - Checks `user.role === "admin"`.
+  - If not admin:
+    - Return 403 with a clear error code (`"FORBIDDEN_ADMIN_ONLY"`).
+- Apply this middleware to all Super Admin routes.
+
+3) Admin Routes (Backend)
+
+Create an admin API namespace, e.g. `/api/admin`, with endpoints like:
+
+- `GET /api/admin/users`
+  - Returns:
+    - List of users with:
+      - id, email, role, plan, created_at
+      - dailyUsageCount, dailyUsageDate (if available)
+- `PUT /api/admin/users/:id/plan`
+  - Body: `{ plan: "FREE" | "PRO_MONTHLY" | "PRO_YEARLY" }`
+  - Allows admin to change a user’s plan manually.
+- `PUT /api/admin/users/:id/reset-usage` (optional)
+  - Resets that user’s dailyUsageCount/date.
+- (Optional) `GET /api/admin/stats`
+  - Basic aggregate stats (number of FREE vs PRO users, today’s usage, etc).
+
+4) Admin Frontend Page
+
+- Add a new route, e.g. `/admin` or `/admin/users`.
+- Link it in the UI only for admin users:
+  - For example:
+    - If current user has `role === "admin"`, show a “Admin” menu item in sidebar or in Settings.
+- Admin page should have at least:
+
+A) **Users Table**
+   - Columns:
+     - Email
+     - Role
+     - Plan
+     - Created At
+     - Daily Usage Today
+   - Actions for each row:
+     - Change plan (dropdown or select).
+     - Reset usage (if implemented).
+   - All actions call the admin API endpoints and show success/error toasts.
+
+B) **Basic Configuration View (Read-only or simple edit)**
+   - Show:
+     - FREE_DAILY_LIMIT (from env or config).
+   - If easy:
+     - Allow admin to propose a new value stored in DB (`app_settings` table), but keep env as source of truth for now.
+   - At minimum: read-only display so admin knows the limit.
+
+- Make sure:
+  - Only admin can open this page.
+  - Non-admins cannot access `/api/admin/*` or see the menu item.
+
+---
+
+🧩 PART 4 — FULL VERIFICATION & TEST PLAN
+
+After implementing all of the above:
+
+1) Run:
+
+   ```bash
+   npm run build
