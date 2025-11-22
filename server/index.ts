@@ -1,18 +1,28 @@
 import express, { type Request, Response, NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { config } from "./config";
+import { verifyToken } from "./auth";
 
 const app = express();
 
 declare module 'http' {
   interface IncomingMessage {
-    rawBody: unknown
+    rawBody: unknown;
+    user?: {
+      id: string;
+      email: string;
+      plan: string;
+    };
   }
 }
 
 // Security: Set Node environment
 app.set("env", config.nodeEnv);
+
+// Parse cookies
+app.use(cookieParser());
 
 // Security: Limit request sizes to prevent DoS
 app.use(express.json({
@@ -36,6 +46,22 @@ app.use((req, res, next) => {
   
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
+  }
+  next();
+});
+
+// Auth middleware - extract user from JWT token in cookies
+app.use((req, res, next) => {
+  const token = req.cookies?.token;
+  if (token) {
+    const payload = verifyToken(token);
+    if (payload) {
+      req.user = {
+        id: payload.userId,
+        email: payload.email,
+        plan: payload.plan,
+      };
+    }
   }
   next();
 });
@@ -70,6 +96,14 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// Middleware to require authentication
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  next();
+}
 
 (async () => {
   // Health check endpoint (no auth required)

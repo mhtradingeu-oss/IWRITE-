@@ -3,6 +3,22 @@ import { pgTable, text, varchar, timestamp, jsonb, integer } from "drizzle-orm/p
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Subscription plan types
+export const subscriptionPlans = ["FREE", "PRO_MONTHLY", "PRO_YEARLY"] as const;
+export type SubscriptionPlan = typeof subscriptionPlans[number];
+
+// Users table
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  plan: text("plan").notNull().default("FREE"),
+  planStartedAt: timestamp("plan_started_at").notNull().defaultNow(),
+  planExpiresAt: timestamp("plan_expires_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Document types supported by the system
 export const documentTypes = [
   "blog",

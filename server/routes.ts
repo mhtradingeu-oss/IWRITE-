@@ -6,6 +6,8 @@ import { extractTextFromFile } from "./fileProcessing";
 import { insertDocumentSchema, insertTemplateSchema, insertStyleProfileSchema, exportDocumentSchema } from "@shared/schema";
 import { fromZodError } from "zod-validation-error";
 import { exportToMarkdown, exportToDOCX, exportToPDF } from "./export";
+import { registerAuthRoutes } from "./authRoutes";
+import { requireAuth } from "./index";
 
 // Initialize Google Cloud Storage for file uploads (only in production)
 let bucket: any = null;
@@ -42,6 +44,8 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express) {
+  // Register auth routes first
+  registerAuthRoutes(app);
   // Health check (also at /healthz in index.ts, this is for consistency)
   app.get("/api/health", async (_req: Request, res: Response) => {
     res.json({ 
@@ -50,8 +54,9 @@ export async function registerRoutes(app: Express) {
     });
   });
 
+  // Protected routes - require authentication
   // Dashboard stats
-  app.get("/api/dashboard/stats", async (req: Request, res: Response) => {
+  app.get("/api/dashboard/stats", requireAuth, async (req: Request, res: Response) => {
     try {
       const documents = await storage.getAllDocuments();
       const uploads = await storage.getAllUploadedFiles();
@@ -69,7 +74,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.get("/api/dashboard/activity", async (req: Request, res: Response) => {
+  app.get("/api/dashboard/activity", requireAuth, async (req: Request, res: Response) => {
     try {
       const documents = await storage.getAllDocuments();
       const activity = documents.slice(0, 5).map((doc) => ({
@@ -83,7 +88,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Documents
-  app.get("/api/documents", async (req: Request, res: Response) => {
+  app.get("/api/documents", requireAuth, async (req: Request, res: Response) => {
     try {
       const documents = await storage.getAllDocuments();
       res.json(documents);
