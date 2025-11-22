@@ -556,17 +556,14 @@ export default function Templates() {
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         const uploadedFile = data[0];
-        const logoUrl = uploadedFile.filePath || uploadedFile.url || "";
+        // Use the file serving endpoint to get the image URL
+        const logoUrl = `/api/uploads/${uploadedFile.id}/file`;
         
-        if (logoUrl) {
-          setFormData({ ...formData, logoUrl, uploadError: undefined });
-          toast({
-            title: "Logo uploaded",
-            description: "Your logo has been uploaded successfully.",
-          });
-        } else {
-          throw new Error("No file path returned from upload");
-        }
+        setFormData({ ...formData, logoUrl, uploadError: undefined });
+        toast({
+          title: "Logo uploaded",
+          description: "Your logo has been uploaded successfully.",
+        });
       } else {
         throw new Error("No files uploaded");
       }

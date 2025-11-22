@@ -122,6 +122,7 @@ export class MemStorage implements IStorage {
   private uploadedFiles: Map<string, UploadedFile>;
   private documentVersions: Map<string, DocumentVersion>;
   private qaCheckResults: Map<string, QACheckResult>;
+  private fileBuffers: Map<string, { buffer: Buffer; mimeType: string }>;
 
   constructor() {
     this.documents = new Map();
@@ -130,6 +131,16 @@ export class MemStorage implements IStorage {
     this.uploadedFiles = new Map();
     this.documentVersions = new Map();
     this.qaCheckResults = new Map();
+    this.fileBuffers = new Map();
+  }
+
+  // File buffer storage for in-memory file serving
+  storeFileBuffer(id: string, buffer: Buffer, mimeType: string): void {
+    this.fileBuffers.set(id, { buffer, mimeType });
+  }
+
+  getFileBuffer(id: string): { buffer: Buffer; mimeType: string } | undefined {
+    return this.fileBuffers.get(id);
   }
 
   // Documents

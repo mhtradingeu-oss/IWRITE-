@@ -526,26 +526,6 @@ export async function registerRoutes(app: Express) {
           }
         }
 
-        // Upload to object storage if bucket is available, otherwise store in memory
-        let filePath = "";
-        if (bucket) {
-          try {
-            const fileName = `${Date.now()}-${file.originalname}`;
-            const blob = bucket.file(`${process.env.PRIVATE_OBJECT_DIR || ".private"}/${fileName}`);
-            await blob.save(file.buffer, {
-              contentType: file.mimetype,
-            });
-            filePath = `gs://${process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID}/${process.env.PRIVATE_OBJECT_DIR || ".private"}/${fileName}`;
-          } catch (error) {
-            console.error("Error uploading to object storage:", error);
-            // Fall back to in-memory storage
-            filePath = `memory://${Date.now()}-${file.originalname}`;
-          }
-        } else {
-          // Development mode: store reference in memory
-          filePath = `memory://${Date.now()}-${file.originalname}`;
-        }
-
         // Determine file type category
         let fileType = "default";
         if (file.mimetype === "application/pdf") fileType = "pdf";
@@ -554,12 +534,16 @@ export async function registerRoutes(app: Express) {
         else if (file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") fileType = "xlsx";
         else if (file.mimetype.startsWith("image/")) fileType = "image";
 
+        // Create the uploaded file record
         const uploadedFile = await storage.createUploadedFile({
           filename: file.originalname,
           fileType,
-          filePath: filePath,
+          filePath: `memory://${file.originalname}`,
           extractedContent: extractedContent || undefined,
         });
+
+        // Store file buffer in memory for serving
+        storage.storeFileBuffer(uploadedFile.id, file.buffer, file.mimetype);
 
         uploadedFiles.push(uploadedFile);
       }
@@ -567,6 +551,21 @@ export async function registerRoutes(app: Express) {
       res.json(uploadedFiles);
     } catch (error: any) {
       console.error("Error uploading files:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Serve uploaded files
+  app.get("/api/uploads/:id/file", async (req: Request, res: Response) => {
+    try {
+      const fileData = storage.getFileBuffer(req.params.id);
+      if (!fileData) {
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      res.setHeader("Content-Type", fileData.mimeType);
+      res.send(fileData.buffer);
+    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });
