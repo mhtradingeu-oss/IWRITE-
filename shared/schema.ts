@@ -324,6 +324,81 @@ export const exportDocumentSchema = z.object({
   format: z.enum(["md", "docx", "pdf"]),
 });
 
+// Songwriter section types
+export const songDialects = [
+  "khaliji",
+  "egyptian",
+  "levant",
+  "msa",
+  "de",
+  "en-us",
+  "en-uk",
+  "other",
+] as const;
+
+export const songTypes = [
+  "romantic",
+  "sad-heartbreak",
+  "motivational",
+  "social-message",
+  "rap-trap",
+  "pop-dance",
+  "national-inspirational",
+] as const;
+
+export const songStructures = [
+  "intro-verse1-chorus-verse2-chorus",
+  "verse-chorus-bridge-chorus",
+  "rap-verses-hook",
+  "custom",
+] as const;
+
+export const rhymePatterns = [
+  "tight",
+  "loose",
+  "ABAB",
+  "AABB",
+  "AAAA",
+] as const;
+
+export type SongDialect = typeof songDialects[number];
+export type SongType = typeof songTypes[number];
+export type SongStructure = typeof songStructures[number];
+export type RhymePattern = typeof rhymePatterns[number];
+
+// Songwriter Feedback table
+export const songwriterFeedback = pgTable("songwriter_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  styleProfileId: varchar("style_profile_id"),
+  sectionType: text("section_type").notNull(), // intro, verse, chorus, bridge
+  sectionContent: text("section_content").notNull(),
+  rating: integer("rating").notNull(), // 1 for good, -1 for bad
+  userNote: text("user_note"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type SongwriterFeedback = typeof songwriterFeedback.$inferSelect;
+export type InsertSongwriterFeedback = typeof songwriterFeedback.$inferInsert;
+
+export const insertSongwriterFeedbackSchema = createInsertSchema(songwriterFeedback).pick({
+  styleProfileId: true,
+  sectionType: true,
+  sectionContent: true,
+  rating: true,
+  userNote: true,
+});
+
+export const generateSongwriterSchema = z.object({
+  songIdea: z.string().min(5, "Song idea must be at least 5 characters"),
+  language: z.enum(languages),
+  dialect: z.enum(songDialects),
+  songType: z.enum(songTypes),
+  structure: z.enum(songStructures),
+  rhymePattern: z.enum(rhymePatterns),
+  styleProfileId: z.string().optional(),
+  customStructure: z.string().optional(),
+});
+
 // Type exports
 export type InsertDocument = z.infer<typeof insertDocumentSchema>;
 export type Document = typeof documents.$inferSelect;

@@ -19,6 +19,7 @@ import Topics from "@/pages/Topics";
 import TopicPack from "@/pages/TopicPack";
 import TopicSearch from "@/pages/TopicSearch";
 import AIWriter from "@/pages/AIWriter";
+import Songwriter from "@/pages/Songwriter";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -26,6 +27,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Dashboard} />
       <Route path="/ai-writer" component={AIWriter} />
+      <Route path="/songwriter" component={Songwriter} />
       <Route path="/documents" component={Documents} />
       <Route path="/documents/:id" component={DocumentEditor} />
       <Route path="/uploads" component={Uploads} />
