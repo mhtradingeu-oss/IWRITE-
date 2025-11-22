@@ -1,0 +1,261 @@
+You are working on the IWRITE project (AI-powered document workspace by MH Trading GmbH).
+
+Most backend logic is already implemented:
+- Auth + JWT cookies
+- FREE vs PRO plans and daily limits
+- Admin / Super admin panel
+- Billing / Stripe endpoints with “Stripe not configured” handling
+- Dashboard, AI Writer, Songwriter, Documents, Templates, etc.
+- Legal pages and global footer
+
+Your job in THIS TURN is to make sure the **end-to-end UX flow** is complete and polished:
+
+1) App opens on a strong, multilingual Home / Landing page.
+2) From Home, users can log in or sign up.
+3) After login, users are redirected **based on their role/plan** to the correct dashboard.
+4) Pricing/Payment page is reachable, designed, and uses the existing billing logic (with a demo/test-ready UI).
+5) Every important page is checked one-by-one for:
+   - Design completeness
+   - Content quality (EN/DE/AR)
+   - Correct links and redirections
+   - No 404 / dead ends
+
+⚠️ DO NOT:
+- Change API endpoints, DB schema, or env vars.
+- Change plan names or roles.
+- Change auth security or cookie handling.
+- Move QueryClientProvider.
+
+You MAY:
+- Add/update React components, routes, redirects.
+- Improve UI, labels, texts, and layout.
+- Add missing pages (Home, Pricing) and wiring.
+
+==================================================
+PART 1 – HOME / LANDING PAGE AS FIRST ENTRY POINT
+==================================================
+
+1) Landing Route
+
+- Ensure there is a **public Landing page component**, e.g. `Home.tsx`.
+- Route:
+  - `/` should show the Landing page for unauthenticated users.
+- For authenticated users hitting `/`:
+  - Either:
+    - Redirect them immediately to their dashboard (see Part 3), OR
+    - Show Home but with a prominent “Open Workspace” button that leads to their dashboard.
+  - Choose the simpler behavior that is consistent with the existing router.
+
+2) Landing Page Content (High-Quality, Multilingual)
+
+Design the Home page as a professional SaaS landing page using the existing design language (dark theme, Inter, Fluent-style):
+
+Sections (all with EN/DE/AR text):
+
+- Hero:
+  - Product name: **IWRITE**
+  - Tagline (3 languages), e.g.:
+    - EN: “AI-powered document workspace for regulated, multilingual content.”
+    - DE: “KI-gestützter Dokumentenarbeitsplatz für rechtssichere, mehrsprachige Inhalte.”
+    - AR: “مساحة كتابة ذكية بالذكاء الاصطناعي لإنشاء مستندات احترافية ومتعددة اللغات.”
+  - Subtext mentioning:
+    - Arabic / German / English support
+    - Professional document types (contracts, policies, shop content, lyrics, etc.)
+    - Developed by Crew Art, powered by MH Trading GmbH.
+  - Primary CTA:
+    - “Login / Open Workspace” → opens login or goes to dashboard.
+  - Secondary CTA:
+    - “View Pricing” → scroll to pricing or open `/plans` / `/settings#plans` based on existing implementation.
+
+- Features grid:
+  - Cards for:
+    - AI Writer (documents, contracts, policies)
+    - Songwriter (lyrics generation)
+    - Templates & Style Profiles
+    - Topics & Search
+    - QA checks (medical claims, disclaimers, consistency)
+  - Each card links to the corresponding **internal page**.
+
+- Multilingual section:
+  - Clearly show EN / DE / AR capabilities.
+  - Short sample use-cases for each language.
+
+- Trust / Company section:
+  - “Powered by MH Trading GmbH”
+  - Address, HRB, VAT (from config).
+  - Clear and concise, not legal-heavy (Imprint/Privacy cover full details).
+
+- CTA strip:
+  - “Start writing with IWRITE today”
+  - Button → Login/Workspace.
+
+3) Integration with Language Toggle
+
+- Use the app’s existing i18n / language toggle (top-right) on the Home page as well.
+- Ensure:
+  - EN/DE/AR text for all headings/paragraphs.
+  - When AR is active:
+    - Text is RTL and right-aligned.
+    - Layout adjusts gracefully (no broken alignment).
+
+==================================================
+PART 2 – LOGIN FLOW FROM HOME & AUTH PAGES
+==================================================
+
+Goal: From Home → Login → correct dashboard, with no confusion.
+
+1) Login / Auth Pages
+
+- Ensure there is a clear way from Home to **login**:
+  - A “Login” button in the header.
+  - A “Login / Open Workspace” CTA in the hero.
+
+- Clicking these should:
+  - Navigate to the existing login route (do NOT create new auth endpoints).
+  - If login form is already embedded in Home, make sure it still uses the correct API.
+
+2) After Successful Login
+
+- Once the user logs in successfully from the Home CTA or login page:
+  - Do NOT leave them on the Home page.
+  - Redirect them based on their **role/plan** (see Part 3).
+
+==================================================
+PART 3 – ROLE-BASED REDIRECTION AFTER LOGIN
+==================================================
+
+You already have roles and plans logically; now we ensure the routing is correct.
+
+Consider these user “types”:
+
+- SUPER ADMIN:
+  - `role = "admin"` or similar
+- PAID USER:
+  - plan = PRO_* (PRO_MONTHLY / PRO_YEARLY)
+- FREE USER:
+  - plan = FREE (but verified account)
+- USER WITH NO PLAN:
+  - Created but not assigned (if supported in schema)
+
+1) Implement a small helper on the client (no backend change) that, after `/auth/me` returns, figures out where to send the user:
+
+Pseudo-logic:
+
+- IF `role === "admin"`:
+  - Redirect to `/admin` (or `/dashboard` first, with easy access to Admin).
+- ELSE IF plan is PRO (paid):
+  - Redirect to `/dashboard` (full access).
+- ELSE IF plan is FREE:
+  - Redirect to `/dashboard` (limited daily usage, but same UI).
+- ELSE (no plan / onboarding state):
+  - Redirect to a simple onboarding or pricing page:
+    - e.g. `/plans` or `/settings#plans` with a banner “Choose your plan to start”.
+
+2) Ensure this logic is applied:
+
+- Immediately after login.
+- When the app boots and finds an existing session (so refresh keeps user on appropriate place).
+
+3) Do NOT change the backend; use existing `/auth/me` and plan fields.
+
+==================================================
+PART 4 – PRICING / PAYMENT PAGE (DEMO-READY UI)
+
+We already have:
+
+- Stripe billing routes
+- FREE vs PRO logic
+- “Stripe not configured” handling
+
+Now we need to ensure there is a **Pricing / Payment page** that is:
+
+- Visually complete
+- Linked from Home & Settings
+- Demo-ready (works with Stripe test or shows clear message when not configured)
+
+1) Identify the existing Pricing/Plans page route:
+   - e.g. `/plans` or a Plans section within Settings.
+
+2) Polishing:
+
+- Ensure Pricing / Plans UI:
+  - Shows FREE vs PRO clearly (features, limitations, price).
+  - Has “Start for Free” and “Upgrade to PRO” buttons.
+  - Uses the same Stripe upgrade flow used in Settings.
+- When Stripe is not configured:
+  - The page should show a clean info banner:
+    - “Stripe payment is not yet configured. For a demo, please contact the administrator.”
+  - Upgrade buttons should not crash or hang.
+
+3) From Home:
+
+- “View Pricing” or “Pricing” nav link should lead users to this Pricing/Plans page.
+- For logged-in users:
+  - They can start upgrade from here too (same behavior as Settings).
+
+==================================================
+PART 5 – PAGE-BY-PAGE UI & CONTENT CHECK
+
+Now do a **structured pass** through all key pages to ensure they are:
+
+- Present
+- Styled
+- Have meaningful content & correct links
+
+Pages to check:
+
+1) Public:
+   - `/` – Home/Landing (new)
+   - `/legal/imprint`
+   - `/legal/privacy`
+   - `/legal/terms`
+   - `/legal/payment`
+
+2) Auth:
+   - Login / Register route(s)
+
+3) Workspace:
+   - `/dashboard`
+   - `/ai-writer`
+   - `/songwriter`
+   - `/documents`
+   - `/file-uploads`
+   - `/templates`
+   - `/style-profiles`
+   - `/search`
+   - `/topics`
+   - `/archive`
+   - `/settings`
+   - `/plans` (if separate)
+   - `/admin`
+
+For each page:
+
+- Check **design**:
+  - Headings, spacing, alignment are consistent with the design system.
+  - No huge empty gaps or misaligned cards.
+
+- Check **content**:
+  - No placeholders like “Lorem ipsum”.
+  - Text is clear and professional.
+  - Where appropriate, support EN/DE/AR (especially for headings, main descriptions, and CTAs).
+
+- Check **links / buttons**:
+  - Internal navigation buttons go to valid routes (no 404).
+  - “Quick Actions” on Dashboard work (Create Document, Upload Files, Manage Templates).
+  - Footer links go to the right legal pages.
+
+- Check **redirections**:
+  - Unauthenticated user hitting workspace routes is redirected to login or home (not stuck).
+  - Logged-in user hitting `/` is handled according to the logic in Part 3.
+  - After upgrade or settings changes, user lands in a sensible place (Settings, Dashboard, etc.).
+
+==================================================
+PART 6 – FINAL VERIFICATION
+
+After all UI & flow changes:
+
+1) Run:
+
+   ```bash
+   npm run build
