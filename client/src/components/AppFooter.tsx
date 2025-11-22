@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Mail } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
 
 interface CompanyInfo {
   name: string;
@@ -39,15 +39,16 @@ export function AppFooter() {
   ];
 
   return (
-    <footer className="bg-background border-t border-border/40">
-      <div className="max-w-7xl mx-auto px-6 py-16 lg:py-20">
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-12 mb-12">
-          {/* Brand Section - Left Side */}
-          <div className="md:col-span-4 flex flex-col justify-start">
+    <footer className="bg-background border-t border-border/40 mt-auto">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
+        {/* Main Grid - Responsive Layout */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 lg:gap-12 mb-12">
+          
+          {/* Brand Section */}
+          <div className="sm:col-span-2 lg:col-span-1 flex flex-col justify-start">
             <div className="mb-6">
-              <h3 className="text-2xl font-bold tracking-tight mb-2">IWRITE</h3>
-              <p className="text-sm text-muted-foreground leading-relaxed">
+              <h3 className="text-xl sm:text-2xl font-bold tracking-tight mb-2">IWRITE</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
                 {brandLine}
               </p>
             </div>
@@ -56,32 +57,46 @@ export function AppFooter() {
               {companyInfo?.email && (
                 <a
                   href={`mailto:${companyInfo.email}`}
-                  className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className="inline-flex items-center gap-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
                   data-testid="footer-link-email"
                 >
-                  <Mail className="h-4 w-4" />
-                  <span>{companyInfo.email}</span>
+                  <Mail className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{companyInfo.email}</span>
                 </a>
               )}
               {companyInfo?.phone && (
-                <p className="text-sm text-muted-foreground">
-                  {companyInfo.phone}
-                </p>
+                <a
+                  href={`tel:${companyInfo.phone}`}
+                  className="inline-flex items-center gap-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
+                  data-testid="footer-link-phone"
+                >
+                  <Phone className="h-4 w-4 flex-shrink-0" />
+                  <span>{companyInfo.phone}</span>
+                </a>
+              )}
+              {(companyInfo?.addressLine1 || companyInfo?.addressLine2) && (
+                <div className="inline-flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
+                  <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                  <div>
+                    {companyInfo?.addressLine1 && <p>{companyInfo.addressLine1}</p>}
+                    {companyInfo?.addressLine2 && <p>{companyInfo.addressLine2}</p>}
+                  </div>
+                </div>
               )}
             </div>
           </div>
 
           {/* Product Section */}
-          <div className="md:col-span-3">
-            <h4 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wide">
+          <div className="flex flex-col">
+            <h4 className="text-xs sm:text-sm font-semibold text-foreground mb-4 uppercase tracking-wide">
               Product
             </h4>
-            <ul className="space-y-3">
+            <ul className="space-y-2 sm:space-y-3">
               {productLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
+                    className="text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 inline-block"
                     data-testid={link.testid}
                   >
                     {link.label}
@@ -92,16 +107,16 @@ export function AppFooter() {
           </div>
 
           {/* Legal Section */}
-          <div className="md:col-span-3">
-            <h4 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wide">
+          <div className="flex flex-col">
+            <h4 className="text-xs sm:text-sm font-semibold text-foreground mb-4 uppercase tracking-wide">
               Legal
             </h4>
-            <ul className="space-y-3">
+            <ul className="space-y-2 sm:space-y-3">
               {legalLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors duration-200"
+                    className="text-xs sm:text-sm text-muted-foreground hover:text-foreground transition-colors duration-200 inline-block"
                     data-testid={link.testid}
                   >
                     {link.label}
@@ -112,11 +127,11 @@ export function AppFooter() {
           </div>
 
           {/* Support Section */}
-          <div className="md:col-span-2">
-            <h4 className="text-sm font-semibold text-foreground mb-4 uppercase tracking-wide">
+          <div className="flex flex-col">
+            <h4 className="text-xs sm:text-sm font-semibold text-foreground mb-4 uppercase tracking-wide">
               Support
             </h4>
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
               Contact us for support, billing inquiries, or feedback.
             </p>
           </div>
@@ -125,20 +140,23 @@ export function AppFooter() {
         {/* Divider */}
         <div className="h-px bg-border/40 mb-8" />
 
-        {/* Bottom Section */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+        {/* Bottom Section - Responsive */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-6">
           {/* Copyright & Company */}
-          <div className="text-xs text-muted-foreground text-center md:text-left">
+          <div className="text-xs text-muted-foreground text-center sm:text-left order-2 sm:order-1">
             <p className="mb-1">
               © {currentYear} <span className="font-semibold">{company}</span>. All rights reserved.
             </p>
-            <p>IWRITE – AI-Powered Document Writing Workspace</p>
+            <p className="text-xs">IWRITE – AI-Powered Document Writing Workspace</p>
           </div>
 
           {/* Credits */}
-          <div className="text-xs text-muted-foreground text-center">
+          <div className="text-xs text-muted-foreground text-center order-1 sm:order-2">
             <p>
-              Developed by <span className="font-medium">Crew Art</span> · Powered by <span className="font-medium">{company}</span>
+              Developed by <span className="font-medium">Crew Art</span>
+            </p>
+            <p>
+              Powered by <span className="font-medium">{company}</span>
             </p>
           </div>
         </div>
