@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Lock, User, Crown, Zap } from "lucide-react";
+import { getRedirectPath } from "@/lib/auth-helpers";
 
 export default function Login() {
   const [, navigate] = useLocation();
@@ -85,20 +86,14 @@ export default function Login() {
       }
 
       const data = await response.json();
-      const userRole = data.user.role;
-      const userPlan = data.user.plan;
+      const redirectPath = getRedirectPath(data.user);
 
       toast({
         title: "Success",
         description: isRegister ? "Account created" : "Logged in",
       });
 
-      // Role-based redirection
-      if (userRole === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/dashboard");
-      }
+      navigate(redirectPath);
     } catch (error) {
       toast({
         title: "Error",

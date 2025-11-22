@@ -18,3 +18,13 @@ export interface UserData {
   role: "user" | "admin";
   dailyAiOperations?: number;
 }
+
+/**
+ * Determines the correct redirect path based on user role and plan
+ * Used after login and on app bootstrap to navigate users to the right destination
+ */
+export function getRedirectPath(user: UserData | null): string {
+  if (!user) return "/login";
+  if (isAdmin(user.role)) return "/admin";
+  return "/dashboard";
+}
