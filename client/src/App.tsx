@@ -37,68 +37,28 @@ import Terms from "@/pages/legal/Terms";
 import PaymentPolicy from "@/pages/legal/PaymentPolicy";
 import NotFound from "@/pages/not-found";
 
-/**
- * ProtectedRoute: Redirects unauthenticated users to login
- */
-function ProtectedRoute({ isAuthenticated, location, navigate, children }: any) {
-  if (!isAuthenticated) {
-    navigate("/login");
-    return null;
-  }
-  return children;
-}
-
-/**
- * AdminGuard: Shows access denied message to non-admin users trying to access /admin
- */
-function AdminGuard({ user, children }: { user: any; children: any }) {
-  if (!isAdmin(user?.role)) {
-    return (
-      <div className="flex items-center justify-center min-h-screen p-4">
-        <Card className="max-w-md">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              <CardTitle>Access Denied</CardTitle>
-            </div>
-            <CardDescription>Admin console is restricted to administrators only</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => window.location.href = "/dashboard"} className="w-full">
-              Go to Dashboard
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-  return children;
-}
-
-function Router({ isAuthenticated, user }: { isAuthenticated: boolean; user: any }) {
-  const [, navigate] = useLocation();
-  
+function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/login" component={Login} />
-      <Route path="/dashboard" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><Dashboard /></ProtectedRoute>} />
-      <Route path="/ai-writer" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><AIWriter /></ProtectedRoute>} />
-      <Route path="/songwriter" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><Songwriter /></ProtectedRoute>} />
-      <Route path="/documents" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><Documents /></ProtectedRoute>} />
-      <Route path="/documents/:id" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><DocumentEditor /></ProtectedRoute>} />
-      <Route path="/uploads" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><Uploads /></ProtectedRoute>} />
-      <Route path="/templates" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><Templates /></ProtectedRoute>} />
-      <Route path="/style-profiles" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><StyleProfiles /></ProtectedRoute>} />
-      <Route path="/archive" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><Archive /></ProtectedRoute>} />
-      <Route path="/topics" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><Topics /></ProtectedRoute>} />
-      <Route path="/topics/:id" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><TopicPack /></ProtectedRoute>} />
-      <Route path="/search" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><TopicSearch /></ProtectedRoute>} />
-      <Route path="/upgrade" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><Upgrade /></ProtectedRoute>} />
-      <Route path="/plans" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><Plans /></ProtectedRoute>} />
-      <Route path="/settings" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><Settings /></ProtectedRoute>} />
-      <Route path="/upgrade/success" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><UpgradeSuccess /></ProtectedRoute>} />
-      <Route path="/admin" component={() => <ProtectedRoute isAuthenticated={isAuthenticated} location="/" navigate={navigate}><AdminGuard user={user}><Admin /></AdminGuard></ProtectedRoute>} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/ai-writer" component={AIWriter} />
+      <Route path="/songwriter" component={Songwriter} />
+      <Route path="/documents" component={Documents} />
+      <Route path="/documents/:id" component={DocumentEditor} />
+      <Route path="/uploads" component={Uploads} />
+      <Route path="/templates" component={Templates} />
+      <Route path="/style-profiles" component={StyleProfiles} />
+      <Route path="/archive" component={Archive} />
+      <Route path="/topics" component={Topics} />
+      <Route path="/topics/:id" component={TopicPack} />
+      <Route path="/search" component={TopicSearch} />
+      <Route path="/upgrade" component={Upgrade} />
+      <Route path="/plans" component={Plans} />
+      <Route path="/settings" component={Settings} />
+      <Route path="/upgrade/success" component={UpgradeSuccess} />
+      <Route path="/admin" component={Admin} />
       <Route path="/legal/imprint" component={Imprint} />
       <Route path="/legal/privacy" component={Privacy} />
       <Route path="/legal/terms" component={Terms} />
@@ -144,6 +104,28 @@ function AppContent({ isAuthenticated, user }: { isAuthenticated: boolean; user:
   const [location] = useLocation();
   const showSidebarAndHeader = isAuthenticated && isAuthenticatedRoute(location);
   
+  // Show access denied for non-admins on /admin
+  if (location === "/admin" && user && !isAdmin(user.role)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <Card className="max-w-md">
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              <CardTitle>Access Denied</CardTitle>
+            </div>
+            <CardDescription>Admin console is restricted to administrators only</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={() => window.location.href = "/dashboard"} className="w-full">
+              Go to Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
   const style = {
     "--sidebar-width": "20rem",
     "--sidebar-width-icon": "4rem",
@@ -157,7 +139,7 @@ function AppContent({ isAuthenticated, user }: { isAuthenticated: boolean; user:
           <div className="flex flex-col flex-1 overflow-hidden">
             {showSidebarAndHeader && <Header />}
             <main className="flex-1 overflow-auto bg-background">
-              <Router isAuthenticated={isAuthenticated} user={user} />
+              <Router />
             </main>
           </div>
         </div>
@@ -179,16 +161,37 @@ function AppLayout() {
     },
   });
 
-  // Bootstrap redirect: if user is authenticated but on wrong page, redirect to correct destination
+  // Handle redirects based on auth status and location
   useEffect(() => {
-    if (!isLoading && user && location === "/login") {
+    if (isLoading) return;
+
+    // Redirect unauthenticated users from protected routes to login
+    if (isAuthenticatedRoute(location) && !user) {
+      navigate("/login");
+      return;
+    }
+
+    // Redirect authenticated users from login page to correct dashboard
+    if (location === "/login" && user) {
       const redirectPath = getRedirectPath(user);
       navigate(redirectPath);
+      return;
     }
-  }, [user, isLoading, location, navigate]);
+
+    // Redirect non-admins from admin page to dashboard
+    if (location === "/admin" && user && !isAdmin(user.role)) {
+      navigate("/dashboard");
+      return;
+    }
+  }, [location, user, isLoading, navigate]);
 
   if (isLoading) {
     return <div className="h-screen flex items-center justify-center">Loading...</div>;
+  }
+
+  // Don't render protected content while redirecting unauthenticated user
+  if (isAuthenticatedRoute(location) && !user) {
+    return null;
   }
 
   return (
