@@ -105,10 +105,10 @@ export default function Privacy() {
           </CardHeader>
           <CardContent className="space-y-4 text-sm">
             <p>
-              <strong>Account Data:</strong> Retained while your account is active and for {process.env.VITE_RETENTION_DAYS || "90"} days after account deletion (unless legally required longer).
+              <strong>Account Data:</strong> Retained while your account is active and for 90 days after account deletion (unless legally required longer).
             </p>
             <p>
-              <strong>Usage Data:</strong> Aggregated usage data is retained for service improvement. Individual usage logs are retained for {process.env.VITE_LOG_RETENTION_DAYS || "30"} days.
+              <strong>Usage Data:</strong> Aggregated usage data is retained for service improvement. Individual usage logs are retained for 30 days.
             </p>
             <p>
               <strong>Payment Data:</strong> Processed securely via Stripe. We do not store full payment card details.
