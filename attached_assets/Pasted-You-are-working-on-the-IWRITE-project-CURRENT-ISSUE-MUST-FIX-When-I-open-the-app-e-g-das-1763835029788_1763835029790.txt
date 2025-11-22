@@ -1,0 +1,134 @@
+You are working on the IWRITE project.
+
+CURRENT ISSUE (MUST FIX):
+
+- When I open the app (e.g. `/dashboard`), I see a central message:
+  “404 Page Not Found – Did you forget to add the page to the router?”
+- The sidebar and footer render correctly, but the main content area is empty with the 404 component.
+- This started after adding the new legal pages/footer.
+
+This clearly indicates a **routing / route mismatch** issue, not an auth or backend problem.
+
+🎯 GOAL FOR THIS TURN
+
+1) Fix the React router configuration so that all main pages (Dashboard, AI Writer, Songwriter, Documents, File Uploads, Templates, Style Profiles, Search, Topics, Archive, Settings, Admin, Legal pages) are correctly registered and render without 404.
+2) Keep ALL existing business logic (auth, plans, admin, billing, usage limits) untouched.
+3) Run a full UI/route verification and confirm no regressions.
+
+DO NOT change authentication, QueryClientProvider, admin/billing logic, or env var names. Only fix and clean up routing + page registration.
+
+---
+
+🧩 PART 1 — ANALYZE CURRENT ROUTES
+
+1) Open the main routing files on the client, for example:
+   - `client/src/App.tsx`
+   - `client/src/router.tsx` or similar
+   - Any shared layout routes (like `AppLayout` or `MainLayout`)
+
+2) Find:
+   - The definition for the **Dashboard** route.
+   - The layout that wraps all workspace pages (the one that shows the sidebar and main content).
+   - The 404 / “Page Not Found” component and its route (likely a catch-all route).
+
+3) Determine why `/dashboard` (or the default route) is hitting the 404:
+   - Is the path changed?
+   - Is the element not imported correctly?
+   - Is the default redirect pointing to a non-existent route?
+
+---
+
+🧩 PART 2 — FIX CORE ROUTE REGISTRATION
+
+1) Ensure the following routes exist and are mapped to their corresponding pages:
+
+   - `/dashboard` → Dashboard page
+   - `/ai-writer` (or whatever is used) → AI Writer page
+   - `/songwriter` → Songwriter page
+   - `/documents` → Documents page
+   - `/file-uploads` → FileUploads page
+   - `/templates` → Templates page
+   - `/style-profiles` → StyleProfiles page
+   - `/search` → Search page
+   - `/topics` → Topics page
+   - `/archive` → Archive page
+   - `/settings` → Settings page
+   - `/admin` → Admin page (admin-only)
+   - `/legal/imprint` → Imprint page
+   - `/legal/privacy` → Privacy page
+   - `/legal/terms` → Terms page
+   - `/legal/payment` → Payment Policy page
+
+2) Make sure these routes are nested correctly inside the main app layout so that:
+   - Sidebar + header + footer render once.
+   - The main content area swaps out per route.
+
+3) Ensure the **404 / NotFound route** is only used as a fallback:
+   - It should be the last route or use a `"*"` pattern.
+   - It must NOT accidentally override legitimate routes.
+
+4) Default route behavior:
+
+   - If the user goes to `/`:
+     - Redirect them to `/dashboard` (or whichever is the main page) after auth.
+   - Make sure this redirect points to a REAL registered path.
+
+---
+
+🧩 PART 3 — SIDEBAR & LINKS CONSISTENCY
+
+1) Open `client/src/components/AppSidebar.tsx` (or the sidebar component).
+
+2) Ensure every menu item’s `to`/`href` path matches the actual route paths you set in Part 2.
+
+   - Dashboard → `/dashboard`
+   - AI Writer → `/ai-writer`
+   - Songwriter → `/songwriter`
+   - Documents → `/documents`
+   - File Uploads → `/file-uploads`
+   - Templates → `/templates`
+   - Style Profiles → `/style-profiles`
+   - Search → `/search`
+   - Topics → `/topics`
+   - Archive → `/archive`
+   - Settings → `/settings`
+   - Admin (only for role="admin") → `/admin`
+
+3) In the **footer**:
+
+   - Ensure links match:
+     - Imprint → `/legal/imprint`
+     - Privacy → `/legal/privacy`
+     - Terms of Use → `/legal/terms`
+     - Payment Policy → `/legal/payment`
+
+4) Fix any mismatches so clicking any link navigates to a valid, registered route.
+
+---
+
+🧩 PART 4 — DO NOT TOUCH CORE LOGIC
+
+While doing the above, DO NOT change:
+
+- QueryClientProvider placement (keep it only at the root where it’s already working).
+- Auth flow or `/auth/me` logic.
+- Admin routes (`/api/admin/*`), billing routes (`/api/billing/*`), or plans logic.
+- Daily limit logic.
+- Stripe integration and “Stripe not configured” handling.
+
+Only adjust:
+- Route definitions.
+- Route imports.
+- Sidebar/footer links.
+- NotFound fallback placement.
+
+---
+
+🧩 PART 5 — VERIFICATION
+
+After fixing routing:
+
+1) Run:
+
+   ```bash
+   npm run build

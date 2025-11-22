@@ -66,19 +66,6 @@ export default function Plans() {
     },
   });
 
-  const [stripeNotConfigured, setStripeNotConfigured] = useQuery({
-    queryKey: ["/api/billing/stripe-status"],
-    queryFn: async () => {
-      const response = await fetch("/api/billing/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planType: "monthly" }),
-        credentials: "include",
-      });
-      return response.status === 503;
-    },
-    enabled: false,
-  });
 
   const upgradeMutation = useMutation({
     mutationFn: async (planType: "monthly" | "yearly") => {

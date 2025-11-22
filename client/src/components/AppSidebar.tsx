@@ -70,7 +70,7 @@ const translations = {
 const mainItems = [
   {
     title: "dashboard",
-    url: "/",
+    url: "/dashboard",
     icon: Home,
   },
   {

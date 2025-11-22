@@ -34,7 +34,7 @@ import NotFound from "@/pages/not-found";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/ai-writer" component={AIWriter} />
       <Route path="/songwriter" component={Songwriter} />
       <Route path="/documents" component={Documents} />
@@ -54,6 +54,7 @@ function Router() {
       <Route path="/legal/privacy" component={Privacy} />
       <Route path="/legal/terms" component={Terms} />
       <Route path="/legal/payment" component={PaymentPolicy} />
+      <Route path="/" component={Dashboard} />
       <Route component={NotFound} />
     </Switch>
   );
