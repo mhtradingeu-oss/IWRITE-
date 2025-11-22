@@ -1,0 +1,171 @@
+You are a senior full-stack & DevOps engineer. You are working on the IWRITE project, which has just passed a pre-production audit.
+
+Here is the CURRENT STATUS (already verified):
+
+- ✅ Database: schema is fully migrated and in sync (including the use_case field). No migration errors.
+- ✅ Production-ready features:
+  - AI Writer: generate, rewrite, translate documents
+  - Songwriter: multi-dialect / multi-style lyric generation
+  - Templates: full CRUD + live preview
+  - Style Profiles: tone/voice/guidelines profiles
+  - File Uploads: PDF, DOCX, CSV, XLSX, Images
+  - QA Checks: medical claims, disclaimers, numeric consistency, product codes
+  - Topics: topic organization + keyword search (no embeddings)
+  - Multi-Language: Arabic (RTL), English, German
+  - Export: Markdown & DOCX
+  - Dashboard: stats and recent activity
+
+- ⚠ Known limitations (ACCEPTABLE for v1):
+  - PDF Export: returns styled HTML, not a true PDF
+  - Semantic embeddings: disabled; keyword search only (for memory safety)
+  - Authentication: NOT implemented – everyone shares the same workspace
+  - Uppy Upload Widget: not integrated; standard uploads work
+
+The app is feature-complete and stable. Your task now is to take this from a “Replit dev app” to a **clean production deployment**.
+
+🎯 PRIMARY GOAL
+
+Prepare IWRITE for **production deployment** on a standard Node.js host, with:
+- A reliable build & start process.
+- Proper environment configuration.
+- Basic security and performance hardening.
+- Clear deployment documentation.
+
+You do NOT need to implement authentication or true PDF export in this step; just make sure the current feature set is production-ready and easy to deploy.
+
+---
+
+🧩 STEP 1 — VERIFY BUILD & START COMMANDS
+
+1. Inspect `package.json` and confirm:
+   - The correct production build script (e.g. `"build": "…"`)
+   - The correct production start script (e.g. `"start": "NODE_ENV=production node dist/server.js"` or equivalent).
+2. If needed, normalize scripts so that any standard Node host can use:
+
+   - `npm run build`  → builds the app for production
+   - `npm run start`  → runs the production server
+
+3. Ensure `NODE_ENV=production` is set in the start script or documented.
+
+If there is a dev-only entry point, keep it but do not use it in production.
+
+---
+
+🧩 STEP 2 — ENVIRONMENT & CONFIG VALIDATION
+
+1. Identify all required environment variables, e.g.:
+
+   - `DATABASE_URL`
+   - `OPENAI_API_KEY`
+   - Anything else the app needs (SMTP, FRONTEND_URL, etc.)
+
+2. Add a small config validation layer on startup (if not present), e.g.:
+
+   - A config module that:
+     - Reads env vars.
+     - Throws a clear error if a mandatory variable is missing.
+
+3. Document the required env vars clearly for production (`README` or `DEPLOYMENT.md`).
+
+---
+
+🧩 STEP 3 — BASIC SECURITY & HARDENING
+
+Without over-engineering, implement or verify:
+
+1. HTTP server:
+   - Respect `NODE_ENV=production`.
+   - Disable any dev-only debug endpoints or test routes.
+   - Ensure CORS is configured sensibly:
+     - Either restricted to the intended domain(s), or documented.
+
+2. Request limits:
+   - Add reasonable body size limits for uploads and JSON requests to avoid abuse/DoS.
+   - Make sure file uploads are restricted to expected types and sizes (as they were in Replit).
+
+3. Logging:
+   - Log errors and important events in a structured way (console is fine, but clean).
+   - Avoid logging secrets.
+
+4. If any admin tools or test UIs exist:
+   - Hide or remove them in production, or put them behind a feature flag/env var.
+
+Remember: for this iteration, authentication is not implemented; treat the app as an internal tool, and document that it MUST be deployed behind a private network or VPN if used as-is.
+
+---
+
+🧩 STEP 4 — PRODUCTION BUILD & STATIC ASSETS
+
+1. Ensure the frontend is correctly bundled for production:
+   - Run `npm run build`.
+   - Fix any build-time errors or warnings that could break the app.
+
+2. Make sure:
+   - Static assets (JS/CSS/fonts/images) are served efficiently (via the framework’s static middleware).
+   - RTL/LTR CSS is correctly generated and loaded.
+
+3. Confirm that the production build behaves exactly like the dev build for:
+   - AI Writer
+   - Songwriter
+   - Templates
+   - Style Profiles
+   - File Uploads
+   - QA
+   - Topics
+   - Export
+
+---
+
+🧩 STEP 5 — HEALTH CHECK & ERROR HANDLING
+
+1. Add a simple **health check endpoint**, e.g. `/healthz` that returns:
+   - `{ status: "ok" }` and a 200 when the app and DB are reachable.
+
+2. Verify global error handling:
+   - Server should return controlled error responses (4xx/5xx) instead of crashing.
+   - Uncaught exceptions are logged and do not expose sensitive details to the client.
+
+This will make it easy to integrate with monitoring or load balancers later.
+
+---
+
+🧩 STEP 6 — DEPLOYMENT DOCS (GENERIC NODE HOST)
+
+Create or update:
+
+1. `README.md` and/or `DEPLOYMENT.md` with:
+
+   - Short description of IWRITE:
+     - “IWRITE is an AI-powered multi-language workspace for documents, templates, QA, topics, and songwriting.”
+   - Requirements:
+     - Node.js version
+     - PostgreSQL (or compatible DB)
+   - Required environment variables and their meaning.
+   - Deployment steps (generic):
+
+     ```bash
+     git clone <repo>
+     cd IWRITE-
+     npm install
+     # set environment variables (.env or host config)
+     npm run migrate   # if applicable
+     npm run build
+     npm run start
+     ```
+
+   - Note on limitations:
+     - No auth → internal use only / put behind VPN or reverse proxy with auth.
+     - PDF export = HTML only.
+     - Keyword search only (no embeddings).
+
+2. Optional: add a short note about recommended hosting environments (VPS, Render, Railway, etc.).
+
+---
+
+🧩 STEP 7 — FINAL SANITY CHECK (LOCAL “PRODUCTION MODE”)
+
+1. Run locally with production settings, for example:
+
+   ```bash
+   NODE_ENV=production npm run build
+   NODE_ENV=production npm run start

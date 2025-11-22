@@ -42,6 +42,14 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express) {
+  // Health check (also at /healthz in index.ts, this is for consistency)
+  app.get("/api/health", async (_req: Request, res: Response) => {
+    res.json({ 
+      status: "ok",
+      timestamp: new Date().toISOString()
+    });
+  });
+
   // Dashboard stats
   app.get("/api/dashboard/stats", async (req: Request, res: Response) => {
     try {
