@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Plus, Layout, Edit, Trash2, Palette, Copy, X, Image as ImageIcon } from "lucide-react";
+import { Plus, Layout, Edit, Trash2, Palette, Copy, X, Image as ImageIcon, Type } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -16,10 +16,32 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/components/LanguageProvider";
-import type { Template } from "@shared/schema";
+import type { Template, LogoPosition, LogoSize, FontFamily } from "@shared/schema";
+import { logoPositions, logoSizes, fontFamilies } from "@shared/schema";
+
+const FONT_FAMILY_MAP: Record<FontFamily, { name: string; css: string; preview: string }> = {
+  inter: { name: "Inter", css: "font-sans", preview: "Aa" },
+  georgia: { name: "Georgia", css: "font-serif", preview: "Aa" },
+  cairo: { name: "Cairo", css: "font-sans", preview: "أب" },
+  "noto-sans-arabic": { name: "Noto Sans Arabic", css: "font-sans", preview: "أب" },
+  "system-ui": { name: "System UI", css: "font-system", preview: "Aa" },
+};
+
+const LOGO_SIZE_MAP: Record<LogoSize, number> = {
+  small: 40,
+  medium: 64,
+  large: 96,
+};
 
 const translations = {
   en: {
@@ -29,9 +51,23 @@ const translations = {
     name: "Template Name",
     header: "Header",
     footer: "Footer",
+    logo: "Logo",
     logoUrl: "Logo URL",
     uploadLogo: "Upload Logo",
     useLogo: "Or paste a logo URL",
+    logoPosition: "Logo Position",
+    logoSize: "Logo Size",
+    topLeft: "Top Left",
+    topCenter: "Top Center",
+    topRight: "Top Right",
+    headerBar: "In Header Bar",
+    side: "Side",
+    small: "Small",
+    medium: "Medium",
+    large: "Large",
+    typography: "Typography",
+    headingFont: "Heading Font",
+    bodyFont: "Body Font",
     primaryColor: "Primary Color",
     secondaryColor: "Secondary Color",
     create: "Create",
@@ -46,8 +82,6 @@ const translations = {
     optional: "Optional",
     preview: "Preview",
     sampleContent: "Sample document content...",
-    colorPickerLabel: "Color picker",
-    hexColorLabel: "HEX Color",
     createdDate: "Created",
     template: "Template",
     editTemplate: "Edit Template",
@@ -60,9 +94,23 @@ const translations = {
     name: "اسم القالب",
     header: "الرأس",
     footer: "التذييل",
+    logo: "الشعار",
     logoUrl: "رابط الشعار",
     uploadLogo: "تحميل الشعار",
     useLogo: "أو لصق رابط الشعار",
+    logoPosition: "موضع الشعار",
+    logoSize: "حجم الشعار",
+    topLeft: "أعلى اليسار",
+    topCenter: "أعلى المركز",
+    topRight: "أعلى اليمين",
+    headerBar: "في شريط الرأس",
+    side: "على الجانب",
+    small: "صغير",
+    medium: "متوسط",
+    large: "كبير",
+    typography: "الخطوط",
+    headingFont: "خط العناوين",
+    bodyFont: "خط النص",
     primaryColor: "اللون الأساسي",
     secondaryColor: "اللون الثانوي",
     create: "إنشاء",
@@ -77,8 +125,6 @@ const translations = {
     optional: "اختياري",
     preview: "معاينة",
     sampleContent: "نموذج محتوى المستند...",
-    colorPickerLabel: "منتقي اللون",
-    hexColorLabel: "لون HEX",
     createdDate: "تم الإنشاء",
     template: "القالب",
     editTemplate: "تحرير القالب",
@@ -91,9 +137,23 @@ const translations = {
     name: "Vorlagenname",
     header: "Kopfzeile",
     footer: "Fußzeile",
+    logo: "Logo",
     logoUrl: "Logo-URL",
     uploadLogo: "Logo hochladen",
     useLogo: "Oder geben Sie eine Logo-URL ein",
+    logoPosition: "Logo-Position",
+    logoSize: "Logogröße",
+    topLeft: "Oben links",
+    topCenter: "Oben Mitte",
+    topRight: "Oben rechts",
+    headerBar: "In Kopfzeilenleiste",
+    side: "Seite",
+    small: "Klein",
+    medium: "Mittel",
+    large: "Groß",
+    typography: "Typografie",
+    headingFont: "Überschriftenschriftart",
+    bodyFont: "Body-Schriftart",
     primaryColor: "Primärfarbe",
     secondaryColor: "Sekundärfarbe",
     create: "Erstellen",
@@ -108,8 +168,6 @@ const translations = {
     optional: "Optional",
     preview: "Vorschau",
     sampleContent: "Beispielinhalt des Dokuments...",
-    colorPickerLabel: "Farbwähler",
-    hexColorLabel: "HEX-Farbe",
     createdDate: "Erstellt",
     template: "Vorlage",
     editTemplate: "Vorlage bearbeiten",
@@ -117,77 +175,189 @@ const translations = {
   },
 };
 
+interface TemplateFormData {
+  name: string;
+  header: string;
+  footer: string;
+  logoUrl: string;
+  logoPosition: LogoPosition;
+  logoSize: LogoSize;
+  headingFontFamily: FontFamily;
+  bodyFontFamily: FontFamily;
+  brandColors: { primary: string; secondary: string };
+}
+
 interface PreviewProps {
-  template: {
-    name: string;
-    header: string;
-    footer: string;
-    logoUrl: string;
-    brandColors: { primary: string; secondary: string };
-  };
+  template: TemplateFormData;
   language: string;
 }
 
 function TemplatePreview({ template, language }: PreviewProps) {
   const t = translations[language as keyof typeof translations];
   const isRTL = language === "ar";
+  const logoPixelSize = LOGO_SIZE_MAP[template.logoSize];
+  const headingFont = FONT_FAMILY_MAP[template.headingFontFamily];
+  const bodyFont = FONT_FAMILY_MAP[template.bodyFontFamily];
+
+  const renderLogo = () => {
+    if (!template.logoUrl) return null;
+    return (
+      <img
+        src={template.logoUrl}
+        alt="Logo"
+        className="object-cover rounded"
+        style={{ height: `${logoPixelSize}px`, width: `${logoPixelSize}px` }}
+        onError={(e) => {
+          const target = e.target as HTMLImageElement;
+          target.style.display = "none";
+        }}
+      />
+    );
+  };
 
   return (
     <div className="bg-muted/30 rounded-lg p-6 flex flex-col h-full overflow-y-auto">
       <h3 className="text-sm font-semibold mb-4">{t.preview}</h3>
-
-      {/* Template Preview Card */}
       <Card className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-900">
-        {/* Header Section */}
+        {/* Header Section - varies by logo position */}
         <div className="p-6 border-b" style={{ backgroundColor: template.brandColors.primary }}>
-          <div className={`flex items-start gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
-            {template.logoUrl && (
-              <img
-                src={template.logoUrl}
-                alt="Logo"
-                className="h-12 w-12 object-cover rounded"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = "none";
-                }}
-              />
-            )}
-            {!template.logoUrl && (
-              <div className="h-12 w-12 bg-white/20 rounded flex items-center justify-center">
-                <ImageIcon className="h-6 w-6 text-white/40" />
+          {template.logoPosition === "header_bar" && (
+            <div className={`flex items-start gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+              {renderLogo() || (
+                <div
+                  className="bg-white/20 rounded flex items-center justify-center"
+                  style={{ height: `${logoPixelSize}px`, width: `${logoPixelSize}px` }}
+                >
+                  <ImageIcon className="h-6 w-6 text-white/40" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                {template.header && (
+                  <p
+                    className="text-sm font-semibold text-white mb-1 break-words"
+                    style={{
+                      textAlign: isRTL ? "right" : "left",
+                      fontFamily: headingFont.css,
+                    }}
+                  >
+                    {template.header}
+                  </p>
+                )}
+                <p
+                  className="text-xs text-white/70"
+                  style={{
+                    textAlign: isRTL ? "right" : "left",
+                    fontFamily: bodyFont.css,
+                  }}
+                >
+                  {template.name}
+                </p>
               </div>
-            )}
-            <div className="flex-1 min-w-0">
+            </div>
+          )}
+
+          {["top_left", "top_center", "top_right"].includes(template.logoPosition) && (
+            <div className="space-y-2">
+              <div
+                className={`flex ${
+                  template.logoPosition === "top_left"
+                    ? isRTL
+                      ? "justify-end"
+                      : "justify-start"
+                    : template.logoPosition === "top_right"
+                      ? isRTL
+                        ? "justify-start"
+                        : "justify-end"
+                      : "justify-center"
+                } mb-4`}
+              >
+                {renderLogo() || (
+                  <div
+                    className="bg-white/20 rounded flex items-center justify-center"
+                    style={{ height: `${logoPixelSize}px`, width: `${logoPixelSize}px` }}
+                  >
+                    <ImageIcon className="h-6 w-6 text-white/40" />
+                  </div>
+                )}
+              </div>
               {template.header && (
                 <p
                   className="text-sm font-semibold text-white mb-1 break-words"
-                  style={{ textAlign: isRTL ? "right" : "left" }}
+                  style={{
+                    textAlign: isRTL ? "right" : "left",
+                    fontFamily: headingFont.css,
+                  }}
                 >
                   {template.header}
                 </p>
               )}
               <p
                 className="text-xs text-white/70"
-                style={{ textAlign: isRTL ? "right" : "left" }}
+                style={{
+                  textAlign: isRTL ? "right" : "left",
+                  fontFamily: bodyFont.css,
+                }}
               >
                 {template.name}
               </p>
             </div>
-          </div>
+          )}
+
+          {template.logoPosition === "side" && (
+            <div className={`flex gap-4 items-start ${isRTL ? "flex-row-reverse" : ""}`}>
+              {renderLogo() || (
+                <div
+                  className="bg-white/20 rounded flex-shrink-0 flex items-center justify-center"
+                  style={{ height: `${logoPixelSize * 0.7}px`, width: `${logoPixelSize * 0.7}px` }}
+                >
+                  <ImageIcon className="h-5 w-5 text-white/40" />
+                </div>
+              )}
+              <div>
+                {template.header && (
+                  <p
+                    className="text-sm font-semibold text-white mb-1 break-words"
+                    style={{ fontFamily: headingFont.css }}
+                  >
+                    {template.header}
+                  </p>
+                )}
+                <p className="text-xs text-white/70" style={{ fontFamily: bodyFont.css }}>
+                  {template.name}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Body Section */}
         <div className="p-6 flex-1">
           <div
             className="space-y-3"
-            style={{ textAlign: isRTL ? "right" : "left", direction: isRTL ? "rtl" : "ltr" }}
+            style={{
+              textAlign: isRTL ? "right" : "left",
+              direction: isRTL ? "rtl" : "ltr",
+              fontFamily: bodyFont.css,
+            }}
           >
-            <h2 className="font-bold text-lg" style={{ color: template.brandColors.primary }}>
+            <h2
+              className="font-bold text-lg"
+              style={{
+                color: template.brandColors.primary,
+                fontFamily: headingFont.css,
+              }}
+            >
               Document Title
             </h2>
             <p className="text-sm text-muted-foreground">{t.sampleContent}</p>
             <div className="pt-3 space-y-2">
-              <h3 className="font-semibold text-sm" style={{ color: template.brandColors.secondary }}>
+              <h3
+                className="font-semibold text-sm"
+                style={{
+                  color: template.brandColors.secondary,
+                  fontFamily: headingFont.css,
+                }}
+              >
                 Section Heading
               </h3>
               <p className="text-xs text-muted-foreground">
@@ -201,7 +371,11 @@ function TemplatePreview({ template, language }: PreviewProps) {
         {template.footer && (
           <div
             className="px-6 py-3 border-t bg-muted/50 text-xs text-muted-foreground"
-            style={{ textAlign: isRTL ? "right" : "left", direction: isRTL ? "rtl" : "ltr" }}
+            style={{
+              textAlign: isRTL ? "right" : "left",
+              direction: isRTL ? "rtl" : "ltr",
+              fontFamily: bodyFont.css,
+            }}
           >
             {template.footer}
           </div>
@@ -217,11 +391,18 @@ export default function Templates() {
   const { toast } = useToast();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
-  const [formData, setFormData] = useState({
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [formData, setFormData] = useState<TemplateFormData>({
     name: "",
     header: "",
     footer: "",
     logoUrl: "",
+    logoPosition: "header_bar",
+    logoSize: "medium",
+    headingFontFamily: "inter",
+    bodyFontFamily: "inter",
     brandColors: { primary: "#1E40AF", secondary: "#F59E0B" },
   });
 
@@ -267,6 +448,10 @@ export default function Templates() {
         header: template.header,
         footer: template.footer,
         logoUrl: template.logoUrl,
+        logoPosition: template.logoPosition || "header_bar",
+        logoSize: template.logoSize || "medium",
+        headingFontFamily: template.headingFontFamily || "inter",
+        bodyFontFamily: template.bodyFontFamily || "inter",
         brandColors: template.brandColors,
       };
       return await apiRequest("POST", "/api/templates", newData);
@@ -299,6 +484,10 @@ export default function Templates() {
       header: "",
       footer: "",
       logoUrl: "",
+      logoPosition: "header_bar",
+      logoSize: "medium",
+      headingFontFamily: "inter",
+      bodyFontFamily: "inter",
       brandColors: { primary: "#1E40AF", secondary: "#F59E0B" },
     });
   };
@@ -310,6 +499,10 @@ export default function Templates() {
       header: template.header || "",
       footer: template.footer || "",
       logoUrl: template.logoUrl || "",
+      logoPosition: template.logoPosition || "header_bar",
+      logoSize: template.logoSize || "medium",
+      headingFontFamily: template.headingFontFamily || "inter",
+      bodyFontFamily: template.bodyFontFamily || "inter",
       brandColors: template.brandColors || { primary: "#1E40AF", secondary: "#F59E0B" },
     });
     setIsDrawerOpen(true);
@@ -319,6 +512,47 @@ export default function Templates() {
     setEditingTemplate(null);
     resetForm();
     setIsDrawerOpen(true);
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file",
+        description: "Please upload an image file (PNG, JPG, SVG, etc.)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formDataUpload = new FormData();
+      formDataUpload.append("files", file);
+
+      const response = await fetch("/api/uploads", {
+        method: "POST",
+        body: formDataUpload,
+      });
+
+      if (!response.ok) throw new Error("Upload failed");
+
+      const data = await response.json();
+      if (data.files && data.files.length > 0) {
+        setFormData({ ...formData, logoUrl: data.files[0].url });
+        toast({
+          title: "Logo uploaded",
+          description: "Your logo has been uploaded successfully.",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload logo. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -404,9 +638,8 @@ export default function Templates() {
                   <div className="space-y-3 pt-4 border-t">
                     <Label className="text-base font-semibold flex items-center gap-2">
                       <ImageIcon className="h-4 w-4" />
-                      Logo
+                      {t.logo}
                     </Label>
-                    <p className="text-xs text-muted-foreground">{t.uploadLogo}</p>
                     <div className="p-3 border-2 border-dashed rounded-lg flex items-center justify-center min-h-24 bg-muted/30">
                       {formData.logoUrl ? (
                         <img
@@ -425,6 +658,26 @@ export default function Templates() {
                         </div>
                       )}
                     </div>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          handleLogoUpload(e.target.files[0]);
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="w-full"
+                    >
+                      {isUploading ? "Uploading..." : t.uploadLogo}
+                    </Button>
                     <Input
                       type="url"
                       placeholder="https://example.com/logo.png"
@@ -433,6 +686,45 @@ export default function Templates() {
                       data-testid="input-logo-url"
                       className="text-sm"
                     />
+                  </div>
+
+                  {/* Logo Controls */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <Label className="text-base font-semibold">{t.logoPosition}</Label>
+                    <Select
+                      value={formData.logoPosition}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, logoPosition: value as LogoPosition })
+                      }
+                    >
+                      <SelectTrigger data-testid="select-logo-position">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="header_bar">{t.headerBar}</SelectItem>
+                        <SelectItem value="top_left">{t.topLeft}</SelectItem>
+                        <SelectItem value="top_center">{t.topCenter}</SelectItem>
+                        <SelectItem value="top_right">{t.topRight}</SelectItem>
+                        <SelectItem value="side">{t.side}</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Label className="text-base font-semibold">{t.logoSize}</Label>
+                    <Select
+                      value={formData.logoSize}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, logoSize: value as LogoSize })
+                      }
+                    >
+                      <SelectTrigger data-testid="select-logo-size">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="small">{t.small}</SelectItem>
+                        <SelectItem value="medium">{t.medium}</SelectItem>
+                        <SelectItem value="large">{t.large}</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Header */}
@@ -447,11 +739,8 @@ export default function Templates() {
                       value={formData.header}
                       onChange={(e) => setFormData({ ...formData, header: e.target.value })}
                       data-testid="input-header"
-                      className="min-h-24"
+                      className="min-h-20"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Displayed at the top of your documents
-                    </p>
                   </div>
 
                   {/* Footer */}
@@ -466,22 +755,72 @@ export default function Templates() {
                       value={formData.footer}
                       onChange={(e) => setFormData({ ...formData, footer: e.target.value })}
                       data-testid="input-footer"
-                      className="min-h-24"
+                      className="min-h-20"
                     />
-                    <p className="text-xs text-muted-foreground">
-                      Displayed at the bottom of your documents
-                    </p>
+                  </div>
+
+                  {/* Typography */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <Label className="text-base font-semibold flex items-center gap-2">
+                      <Type className="h-4 w-4" />
+                      {t.typography}
+                    </Label>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="headingFont" className="text-sm">
+                        {t.headingFont}
+                      </Label>
+                      <Select
+                        value={formData.headingFontFamily}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, headingFontFamily: value as FontFamily })
+                        }
+                      >
+                        <SelectTrigger data-testid="select-heading-font">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {fontFamilies.map((font) => (
+                            <SelectItem key={font} value={font}>
+                              {FONT_FAMILY_MAP[font].name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="bodyFont" className="text-sm">
+                        {t.bodyFont}
+                      </Label>
+                      <Select
+                        value={formData.bodyFontFamily}
+                        onValueChange={(value) =>
+                          setFormData({ ...formData, bodyFontFamily: value as FontFamily })
+                        }
+                      >
+                        <SelectTrigger data-testid="select-body-font">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {fontFamilies.map((font) => (
+                            <SelectItem key={font} value={font}>
+                              {FONT_FAMILY_MAP[font].name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
                   {/* Colors */}
                   <div className="space-y-3 pt-4 border-t">
                     <Label className="text-base font-semibold flex items-center gap-2">
                       <Palette className="h-4 w-4" />
-                      Brand Colors
+                      {t.primaryColor}
                     </Label>
 
                     <div className="grid grid-cols-2 gap-4">
-                      {/* Primary Color */}
                       <div className="space-y-2">
                         <Label htmlFor="primaryColor" className="text-sm">
                           {t.primaryColor}
@@ -521,7 +860,6 @@ export default function Templates() {
                         </div>
                       </div>
 
-                      {/* Secondary Color */}
                       <div className="space-y-2">
                         <Label htmlFor="secondaryColor" className="text-sm">
                           {t.secondaryColor}
@@ -628,7 +966,6 @@ export default function Templates() {
               </CardHeader>
 
               <CardContent className="space-y-3 flex-1">
-                {/* Logo Thumbnail */}
                 {template.logoUrl && (
                   <div className="p-2 bg-muted rounded">
                     <img
@@ -643,7 +980,6 @@ export default function Templates() {
                   </div>
                 )}
 
-                {/* Color Dots */}
                 {template.brandColors && (
                   <div className="flex items-center gap-2">
                     <Palette className="h-3 w-3 text-muted-foreground" />
@@ -662,7 +998,6 @@ export default function Templates() {
                   </div>
                 )}
 
-                {/* Text Snippet */}
                 {(template.header || template.footer) && (
                   <p className="text-xs text-muted-foreground line-clamp-2">
                     {template.header || template.footer}
@@ -670,7 +1005,6 @@ export default function Templates() {
                 )}
               </CardContent>
 
-              {/* Card Actions */}
               <div className="border-t p-3 flex gap-1 justify-between">
                 <div className="flex gap-1">
                   <Button

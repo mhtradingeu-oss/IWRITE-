@@ -43,6 +43,15 @@ export const documents = pgTable("documents", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+// Logo position and size types
+export const logoPositions = ["top_left", "top_center", "top_right", "header_bar", "side"] as const;
+export const logoSizes = ["small", "medium", "large"] as const;
+export const fontFamilies = ["inter", "georgia", "cairo", "noto-sans-arabic", "system-ui"] as const;
+
+export type LogoPosition = typeof logoPositions[number];
+export type LogoSize = typeof logoSizes[number];
+export type FontFamily = typeof fontFamilies[number];
+
 // Templates table
 export const templates = pgTable("templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -50,6 +59,10 @@ export const templates = pgTable("templates", {
   header: text("header"),
   footer: text("footer"),
   logoUrl: text("logo_url"),
+  logoPosition: text("logo_position").default("header_bar"),
+  logoSize: text("logo_size").default("medium"),
+  headingFontFamily: text("heading_font_family").default("inter"),
+  bodyFontFamily: text("body_font_family").default("inter"),
   brandColors: jsonb("brand_colors").$type<{ primary: string; secondary: string }>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -180,6 +193,10 @@ export const insertTemplateSchema = createInsertSchema(templates).pick({
   header: true,
   footer: true,
   logoUrl: true,
+  logoPosition: true,
+  logoSize: true,
+  headingFontFamily: true,
+  bodyFontFamily: true,
   brandColors: true,
 });
 
