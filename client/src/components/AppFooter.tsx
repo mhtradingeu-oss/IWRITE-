@@ -40,9 +40,9 @@ export function AppFooter() {
 
   return (
     <footer className="bg-background border-t border-border/40 mt-auto">
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24 lg:py-32">
         {/* Main Grid - Responsive Layout */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-10 lg:gap-12 mb-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 sm:gap-12 lg:gap-16 mb-16">
           
           {/* Brand Section */}
           <div className="sm:col-span-2 lg:col-span-1 flex flex-col justify-start">
@@ -138,10 +138,10 @@ export function AppFooter() {
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-border/40 mb-8" />
+        <div className="h-px bg-border/40 mb-12" />
 
         {/* Bottom Section - Responsive */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 sm:gap-6">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-6 sm:gap-8">
           {/* Copyright & Company */}
           <div className="text-xs text-muted-foreground text-center sm:text-left order-2 sm:order-1">
             <p className="mb-1">
