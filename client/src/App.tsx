@@ -63,7 +63,41 @@ function Router() {
   );
 }
 
+const AUTHENTICATED_ROUTES = [
+  "/dashboard",
+  "/ai-writer",
+  "/songwriter",
+  "/documents",
+  "/documents/:id",
+  "/uploads",
+  "/templates",
+  "/style-profiles",
+  "/archive",
+  "/topics",
+  "/topics/:id",
+  "/search",
+  "/plans",
+  "/settings",
+  "/upgrade/success",
+  "/admin",
+];
+
+function isAuthenticatedRoute(pathname: string): boolean {
+  // Check exact matches and parameterized routes
+  return AUTHENTICATED_ROUTES.some(route => {
+    if (route === pathname) return true;
+    if (route.includes(":")) {
+      const pattern = route.replace(/:\w+/g, "[^/]+");
+      return new RegExp(`^${pattern}$`).test(pathname);
+    }
+    return false;
+  });
+}
+
 function AppContent({ isAuthenticated }: { isAuthenticated: boolean }) {
+  const [location] = useLocation();
+  const showSidebarAndHeader = isAuthenticated && isAuthenticatedRoute(location);
+  
   const style = {
     "--sidebar-width": "20rem",
     "--sidebar-width-icon": "4rem",
@@ -73,9 +107,9 @@ function AppContent({ isAuthenticated }: { isAuthenticated: boolean }) {
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex flex-col h-screen w-full">
         <div className="flex flex-1 overflow-hidden">
-          {isAuthenticated && <AppSidebar />}
+          {showSidebarAndHeader && <AppSidebar />}
           <div className="flex flex-col flex-1 overflow-hidden">
-            {isAuthenticated && <Header />}
+            {showSidebarAndHeader && <Header />}
             <main className="flex-1 overflow-auto bg-background">
               <Router />
             </main>

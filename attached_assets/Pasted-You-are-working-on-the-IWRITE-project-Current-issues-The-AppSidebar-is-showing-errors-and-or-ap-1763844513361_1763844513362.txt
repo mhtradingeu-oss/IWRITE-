@@ -1,0 +1,77 @@
+You are working on the IWRITE project.
+
+Current issues:
+- The AppSidebar is showing errors and/or appears in places where it should not (e.g. on public pages).
+- Sidebar items should depend on:
+  - Authentication status
+  - User plan: FREE vs PRO
+  - User role: normal user vs SUPER ADMIN
+- Certain sections (like Songwriter and Templates) should be gated for FREE users with an "Upgrade to use" UI.
+- The Admin page is only for management and should only be visible/accessible for SUPER ADMIN users.
+
+Your task in THIS TURN is to:
+
+1) Fix the AppSidebar error(s) and make sure it never breaks the app.
+2) Implement a clean, role/plan-aware sidebar:
+   - Only visible inside the authenticated workspace layout (Dashboard and related pages).
+   - Items are conditionally visible/enabled based on plan/role.
+3) Add UX for gated features:
+   - For FREE users: show “Upgrade to use” instead of full access to paid-only sections.
+4) Verify the behavior by actually testing with the seeded FREE and PRO/admin accounts.
+
+DO NOT:
+- Change API routes or backend logic.
+- Rename env vars or plan names.
+- Change how auth or JWT cookies work.
+- Move QueryClientProvider.
+
+You MAY:
+- Edit `AppSidebar` and workspace layout components.
+- Add small helper functions/types on the frontend for role/plan checks.
+- Add simple UI wrappers for gated sections.
+- Add small client-side redirects after clicking items that require upgrade.
+
+--------------------------------------------------
+PART 1 – FIX AND ISOLATE THE SIDEBAR
+--------------------------------------------------
+
+1) Locate the sidebar component, e.g. `client/src/components/AppSidebar.tsx` and the layout component that uses it (e.g. `AppLayout`).
+
+2) Fix any runtime errors:
+   - Check imports and hooks.
+   - Ensure AppSidebar never calls hooks that require context (like useQuery) outside of proper providers.
+   - If AppSidebar reads user data, it should use the existing auth hook or context (e.g. useAuth / useQuery("/auth/me")) and handle:
+     - loading state
+     - unauthenticated state
+     - errors gracefully (no crash).
+
+3) Ensure the sidebar is only rendered in the authenticated workspace layout:
+   - It should NOT appear on:
+     - `/` (public landing)
+     - login/register pages
+     - any other public-only routes.
+   - It should appear on:
+     - `/dashboard`, `/ai-writer`, `/songwriter`, `/documents`, `/file-uploads`, `/templates`, `/style-profiles`, `/search`, `/topics`, `/archive`, `/settings`, `/admin` (for admin).
+
+--------------------------------------------------
+PART 2 – ROLE & PLAN AWARE SIDEBAR ITEMS
+--------------------------------------------------
+
+We have three main user “types”:
+
+- FREE user:
+  - Has a FREE plan (daily limits, some features gated).
+- PRO user:
+  - Has plan PRO_* (PRO_MONTHLY / PRO_YEARLY) with full access.
+- SUPER ADMIN:
+  - role = "admin" (and typically PRO as well) with management capabilities.
+
+1) From the `/auth/me` response, confirm fields:
+   - `plan` (FREE or PRO_*).
+   - `role` (e.g. "user" vs "admin").
+   - Use a small helper on the client:
+
+   ```ts
+   function isFree(plan: string): boolean { ... }
+   function isPro(plan: string): boolean { ... }
+   function isAdmin(role: string): boolean { ... }
