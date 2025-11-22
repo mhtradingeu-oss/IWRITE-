@@ -9,6 +9,7 @@ import { LanguageProvider } from "@/components/LanguageProvider";
 import { AppSidebar } from "@/components/AppSidebar";
 import { Header } from "@/components/Header";
 import { AppFooter } from "@/components/AppFooter";
+import Home from "@/pages/Home";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Documents from "@/pages/Documents";
@@ -32,33 +33,7 @@ import Terms from "@/pages/legal/Terms";
 import PaymentPolicy from "@/pages/legal/PaymentPolicy";
 import NotFound from "@/pages/not-found";
 
-function RootRedirect() {
-  const [, navigate] = useLocation();
-  const { data: user } = useQuery({
-    queryKey: ["/auth/me"],
-    queryFn: async () => {
-      const response = await fetch("/auth/me", { credentials: "include" });
-      if (!response.ok) return null;
-      const data = await response.json();
-      return data.user;
-    },
-  });
-
-  useEffect(() => {
-    if (user) {
-      // Auto-redirect based on role
-      if (user.role === "admin") {
-        navigate("/admin");
-      } else {
-        navigate("/dashboard");
-      }
-    }
-  }, [user, navigate]);
-
-  return null;
-}
-
-function Router() {
+function Router({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <Switch>
       <Route path="/dashboard" component={Dashboard} />
@@ -81,13 +56,17 @@ function Router() {
       <Route path="/legal/privacy" component={Privacy} />
       <Route path="/legal/terms" component={Terms} />
       <Route path="/legal/payment" component={PaymentPolicy} />
-      <Route path="/" component={RootRedirect} />
+      {isAuthenticated ? (
+        <Route path="/" component={Dashboard} />
+      ) : (
+        <Route path="/" component={Home} />
+      )}
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-function AppContent() {
+function AppContent({ isAuthenticated }: { isAuthenticated: boolean }) {
   const style = {
     "--sidebar-width": "20rem",
     "--sidebar-width-icon": "4rem",
@@ -97,17 +76,16 @@ function AppContent() {
     <SidebarProvider style={style as React.CSSProperties}>
       <div className="flex flex-col h-screen w-full">
         <div className="flex flex-1 overflow-hidden">
-          <AppSidebar />
+          {isAuthenticated && <AppSidebar />}
           <div className="flex flex-col flex-1 overflow-hidden">
-            <Header />
+            {isAuthenticated && <Header />}
             <main className="flex-1 overflow-auto bg-background">
-              <Router />
+              <Router isAuthenticated={isAuthenticated} />
             </main>
           </div>
         </div>
-        <AppFooter />
+        <Toaster />
       </div>
-      <Toaster />
     </SidebarProvider>
   );
 }
@@ -131,8 +109,9 @@ function AppLayout() {
     return (
       <TooltipProvider>
         <ThemeProvider>
-          <Login />
-          <Toaster />
+          <LanguageProvider>
+            <AppContent isAuthenticated={false} />
+          </LanguageProvider>
         </ThemeProvider>
       </TooltipProvider>
     );
@@ -142,7 +121,7 @@ function AppLayout() {
     <TooltipProvider>
       <ThemeProvider>
         <LanguageProvider>
-          <AppContent />
+          <AppContent isAuthenticated={true} />
         </LanguageProvider>
       </ThemeProvider>
     </TooltipProvider>
