@@ -622,11 +622,12 @@ export async function registerRoutes(app: Express) {
       }
       
       // Memory safety: Reject files with too much extracted content
-      const MAX_CONTENT_SIZE = 500000; // 500KB
+      // CRITICAL: Must match Topic Intelligence service limit
+      const MAX_CONTENT_SIZE = 100000; // 100KB (matches TopicIntelligenceService)
       if (file.extractedContent.length > MAX_CONTENT_SIZE) {
-        console.warn(`File ${file.id} too large: ${file.extractedContent.length} chars`);
+        console.warn(`File ${file.id} too large: ${file.extractedContent.length} chars. Rejecting to prevent OOM.`);
         return res.status(413).json({ 
-          error: `File content too large: ${file.extractedContent.length} characters. Maximum allowed: ${MAX_CONTENT_SIZE} characters. Please upload a smaller file or truncate the content.` 
+          error: `File content too large for Topic Intelligence processing: ${file.extractedContent.length} characters. Maximum allowed: ${MAX_CONTENT_SIZE} characters (100KB). Please upload a smaller file.` 
         });
       }
       

@@ -28,21 +28,23 @@ export class TopicIntelligenceService {
       }
 
       // Memory safety: Limit content size to prevent OOM
-      const MAX_CONTENT_SIZE = 500000; // 500KB of text
+      // CRITICAL: Further reduced for Topic Intelligence processing
+      const MAX_CONTENT_SIZE = 100000; // 100KB of text (reduced from 500KB)
       if (file.extractedContent.length > MAX_CONTENT_SIZE) {
-        throw new Error(`File too large: ${file.extractedContent.length} chars. Maximum allowed: ${MAX_CONTENT_SIZE} chars`);
+        console.warn(`File content too large: ${file.extractedContent.length} chars. Truncating to ${MAX_CONTENT_SIZE} chars`);
+        file.extractedContent = file.extractedContent.substring(0, MAX_CONTENT_SIZE);
       }
 
       // Step 1: Chunk the document
       const chunks = chunkDocument(file.extractedContent, {
-        maxChunkSize: 1000,
-        overlap: 100,
+        maxChunkSize: 800, // Reduced from 1000
+        overlap: 50, // Reduced from 100
         preserveHeadings: true,
         preserveSections: true,
       });
 
-      // Memory safety: Limit number of chunks to prevent OOM during embedding generation
-      const MAX_CHUNKS = 200;
+      // Memory safety: Limit number of chunks to prevent OOM
+      const MAX_CHUNKS = 100; // Reduced from 200
       if (chunks.length > MAX_CHUNKS) {
         console.warn(`Too many chunks (${chunks.length}), limiting to ${MAX_CHUNKS}`);
         chunks.splice(MAX_CHUNKS);
@@ -96,10 +98,18 @@ export class TopicIntelligenceService {
       if (storedChunks.length > 0) {
         const simpleEntities = this.extractSimpleEntities(file.extractedContent);
         
+        // Memory safety: Limit entities to prevent OOM
+        const MAX_ENTITIES = 100;
+        const limitedEntities = simpleEntities.slice(0, MAX_ENTITIES);
+        
+        if (simpleEntities.length > MAX_ENTITIES) {
+          console.warn(`Too many entities (${simpleEntities.length}), limiting to ${MAX_ENTITIES}`);
+        }
+        
         // Link entities to first chunk (simplified approach)
         const firstChunkId = storedChunks[0];
         
-        for (const entity of simpleEntities) {
+        for (const entity of limitedEntities) {
           const entityData: InsertEntity = {
             chunkId: firstChunkId,
             entityType: entity.type,
@@ -238,42 +248,63 @@ export class TopicIntelligenceService {
       metadata?: any;
     }> = [];
 
-    // Extract numbers with units
+    // Early exit safety: Limit content size for regex processing
+    // CRITICAL: Regex on large text causes OOM - use small limit
+    const MAX_CONTENT_FOR_REGEX = 50000; // 50KB (reduced from 100KB)
+    const contentToProcess = content.length > MAX_CONTENT_FOR_REGEX 
+      ? content.substring(0, MAX_CONTENT_FOR_REGEX)
+      : content;
+    
+    if (content.length > MAX_CONTENT_FOR_REGEX) {
+      console.warn(`Content too large for regex (${content.length} chars), processing only first ${MAX_CONTENT_FOR_REGEX} chars`);
+    }
+
+    // Extract numbers with units (limit matches)
     const numberRegex = /(\d+(?:\.\d+)?)\s*(years?|months?|days?|°C|°F|%|kg|mg|ml)/gi;
     let match;
-    while ((match = numberRegex.exec(content)) !== null) {
+    let numberCount = 0;
+    const MAX_PER_TYPE = 30; // Limit per entity type (reduced from 50)
+    
+    while ((match = numberRegex.exec(contentToProcess)) !== null && numberCount < MAX_PER_TYPE) {
       const start = Math.max(0, match.index - 50);
-      const end = Math.min(content.length, match.index + match[0].length + 50);
+      const end = Math.min(contentToProcess.length, match.index + match[0].length + 50);
       entities.push({
         type: "number",
         value: match[1],
-        context: content.substring(start, end),
+        context: contentToProcess.substring(start, end),
         metadata: { unit: match[2] },
       });
+      numberCount++;
     }
 
-    // Extract dates
+    // Extract dates (limit matches)
     const dateRegex = /\b(\d{4}[-/]\d{2}[-/]\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})\b/g;
-    while ((match = dateRegex.exec(content)) !== null) {
+    let dateCount = 0;
+    
+    while ((match = dateRegex.exec(contentToProcess)) !== null && dateCount < MAX_PER_TYPE) {
       const start = Math.max(0, match.index - 50);
-      const end = Math.min(content.length, match.index + match[0].length + 50);
+      const end = Math.min(contentToProcess.length, match.index + match[0].length + 50);
       entities.push({
         type: "date",
         value: match[1],
-        context: content.substring(start, end),
+        context: contentToProcess.substring(start, end),
       });
+      dateCount++;
     }
 
-    // Extract regulations (ISO, Article, etc.)
+    // Extract regulations (limit matches)
     const regRegex = /\b(ISO\s+\d+(?::\d+)?|Article\s+\d+(?:\.\d+)?|Section\s+\d+)\b/gi;
-    while ((match = regRegex.exec(content)) !== null) {
+    let regCount = 0;
+    
+    while ((match = regRegex.exec(contentToProcess)) !== null && regCount < MAX_PER_TYPE) {
       const start = Math.max(0, match.index - 50);
-      const end = Math.min(content.length, match.index + match[0].length + 50);
+      const end = Math.min(contentToProcess.length, match.index + match[0].length + 50);
       entities.push({
         type: "regulation",
         value: match[1],
-        context: content.substring(start, end),
+        context: contentToProcess.substring(start, end),
       });
+      regCount++;
     }
 
     return entities;

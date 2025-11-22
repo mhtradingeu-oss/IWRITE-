@@ -64,18 +64,24 @@ Preferred communication style: Simple, everyday language.
 
 **Topic Intelligence System** (Nov 2025)
 - Simplified keyword-based approach (no AI embeddings to avoid memory constraints)
-- Document chunking with configurable size (default 800 chars, max 200 chunks per file)
+- Document chunking with configurable size (800 chars, overlap 50, max 100 chunks per file)
 - Entity extraction: numbers, dates, medical terms, product codes, regulations
 - Topic classification based on keyword matching
 - Multi-source document synthesis via Topic Packs
 - Keyword-based search across all topics and documents
-- Memory protection: 10MB file limit, 500KB text, 1000 rows for CSV/XLSX
+- **Memory Protection** (Aggressive Limits to Prevent OOM):
+  - File upload: 10MB max file size, 1000 rows for CSV/XLSX
+  - Content extraction: 500KB max extracted text (CSV/XLSX)
+  - **Topic Intelligence processing: 100KB max content** (files larger than 100KB rejected with error 413)
+  - Chunking: 800 chars per chunk, 50 char overlap, max 100 chunks
+  - Entity extraction: 50KB max for regex, 30 entities per type, 100 total entities max
 - **OOM Fix (Nov 7, 2025)**: Added limit support to `getChunksByTopic()` and `getEntitiesByTopic()` storage methods
   - API endpoints now respect `?limit=N` query parameter
   - `getEntitiesByTopic()` only fetches chunk IDs (not full content) to prevent memory bloat
   - Frontend limits: 50 chunks, 100 entities per topic
   - Uses Drizzle ORM `inArray()` helper for efficient SQL queries
 - **XSS Fix (Nov 7, 2025)**: TopicSearch now escapes HTML before applying search highlights to prevent script injection
+- **Known Limitation**: Files with extracted content >100KB cannot be processed by Topic Intelligence. Upload will succeed but processing will fail with error. Recommendation: split large files or reduce content before upload.
 
 **Document Export**
 - Multi-format export system (Markdown ✅, DOCX ✅, PDF pending)
