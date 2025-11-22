@@ -217,4 +217,42 @@ export function registerAdminRoutes(app: Express) {
       res.status(500).json({ error: error.message || "Failed to update daily limit" });
     }
   });
+
+  // Admin AI Assistant - Get AI insights about stats
+  app.post("/api/admin/ai-insights", requireAuth, requireAdmin, async (req: Request, res: Response) => {
+    try {
+      const { prompt, context } = req.body;
+
+      if (!prompt) {
+        return res.status(400).json({ error: "Prompt is required" });
+      }
+
+      // Import AI function
+      const { generateDocument } = await import("./ai");
+
+      const systemPrompt = `You are an expert admin assistant for the IWRITE app. You have access to system statistics and user data. Based on the provided context, answer the admin's question with:
+1. A clear, concise analysis
+2. Specific, actionable recommendations
+3. Any patterns or anomalies you notice
+
+Be helpful, professional, and data-driven.`;
+
+      const contextStr = context
+        ? `\n\nCurrent System Context:\n${JSON.stringify(context, null, 2)}`
+        : "";
+
+      const fullPrompt = `${prompt}${contextStr}`;
+
+      const insight = await generateDocument({
+        documentType: "admin-analysis",
+        language: "en",
+        prompt: fullPrompt,
+      });
+
+      res.json({ insight });
+    } catch (error: any) {
+      console.error("Error generating AI insights:", error);
+      res.status(500).json({ error: error.message || "Failed to generate insights" });
+    }
+  });
 }
