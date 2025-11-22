@@ -1,0 +1,86 @@
+You are working on the IWRITE project.
+
+IMPORTANT:  
+Authentication, subscription plans, daily usage limits, and the seeding script are ALREADY implemented and working.  
+Your own previous message said:
+
+- dailyUsageCount and dailyUsageDate fields added
+- Plan helpers in server/plans.ts
+- Limit middleware in server/limitMiddleware.ts (20 daily generations for FREE)
+- Middleware applied to all AI endpoints
+- scripts/seedUsers.ts created
+- FREE_DAILY_LIMIT, SEED_FREE_USER_EMAIL, SEED_PRO_USER_EMAIL already in use
+- Remaining work: update DEPLOYMENT.md and run build/seed/dev
+
+🎯 GOAL (VERY IMPORTANT)
+
+1. **DO NOT rename or change any existing code, identifiers, env var names, or scripts.**  
+   - Keep exactly:
+     - `FREE_DAILY_LIMIT`
+     - `SEED_FREE_USER_EMAIL`
+     - `SEED_PRO_USER_EMAIL`
+     - `npm run seed:users`
+     - Plan names (`FREE`, `PRO_MONTHLY`, `PRO_YEARLY`, or any others you added)
+     - `dailyUsageCount`, `dailyUsageDate`
+   - Do NOT modify server/plans.ts, server/limitMiddleware.ts, scripts/seedUsers.ts, or any AI endpoints unless there is a critical bug. Assume they are correct.
+
+2. Only do three things:
+   - Update **DEPLOYMENT.md** with the missing documentation.
+   - Run a final verification (build + seed + dev).
+   - Summarize what you did and confirm both plans/users work.
+
+---
+
+🧩 PART 1 — DEPLOYMENT.md UPDATE (DOCS ONLY)
+
+Open `DEPLOYMENT.md` and:
+
+1) In the ENV table / optional variables section (around where you mentioned earlier), add three rows using the **exact names already used in the code**:
+
+   | Variable                | Description                                      | Example                |
+   |-------------------------|--------------------------------------------------|------------------------|
+   | `FREE_DAILY_LIMIT`      | Daily AI generation limit for FREE plan         | `20`                   |
+   | `SEED_FREE_USER_EMAIL`  | FREE test account email used by seed:users      | `test@example.com`     |
+   | `SEED_PRO_USER_EMAIL`   | PRO test account email used by seed:users       | `mhtrading@gmail.com`  |
+
+   (If the table already exists, just append these rows in the correct place. Do NOT rename existing rows.)
+
+2) Add a new section called exactly:
+
+   `## 🎯 Subscription Plans & FREE Daily Limits`
+
+   Under it, document:
+
+   - Two-tier model:
+
+     - **FREE Plan:** 20 AI generations per day (limit resets daily at UTC midnight).
+     - **PAID Plan (PRO_MONTHLY/PRO_YEARLY):** Unlimited AI usage.
+
+   - Seeding test accounts, explicitly referencing the existing script name and env vars, for example:
+
+     ```bash
+     npm run seed:users
+     ```
+
+     Explain that:
+     - This creates or updates two users (idempotent):
+       - FREE: `test@example.com` (plan FREE)
+       - PRO: `mhtrading@gmail.com` (plan PRO, e.g. PRO_MONTHLY/PRO_YEARLY)
+     - Passwords are set via environment variables (do NOT write passwords as plain text in the doc).
+
+   - Testing limits:
+     - Login as FREE user → hit the generation limit after 20 uses; an error message appears.
+     - Login as PRO user → can generate beyond that without being blocked.
+
+Make sure DEPLOYMENT.md remains clean and consistent; do not remove any existing content.
+
+---
+
+🧩 PART 2 — FINAL VERIFICATION (NO CODE CHANGES EXCEPT DOC)
+
+After updating DEPLOYMENT.md, run the following commands:
+
+1) Build:
+
+   ```bash
+   npm run build

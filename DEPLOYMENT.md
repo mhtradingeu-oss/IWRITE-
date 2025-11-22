@@ -83,6 +83,9 @@ npm run start
 | `PORT` | Server port | `5000` |
 | `CORS_ORIGIN` | CORS allowed origin | `*` |
 | `DEFAULT_OBJECT_STORAGE_BUCKET_ID` | Google Cloud Storage bucket | (disabled) |
+| `FREE_DAILY_LIMIT` | Daily AI generation limit for FREE plan | `20` |
+| `SEED_FREE_USER_EMAIL` | FREE test account email used by seed:users | `test@example.com` |
+| `SEED_PRO_USER_EMAIL` | PRO test account email used by seed:users | `mhtrading@gmail.com` |
 
 ### Configuration Validation
 
@@ -124,6 +127,60 @@ Missing required environment variable: DATABASE_URL
 ✅ **Error Handling:** No stack traces exposed in production  
 ✅ **Graceful Shutdown:** SIGTERM handling for clean restarts  
 ✅ **Health Checks:** `/healthz` endpoint for monitoring  
+
+---
+
+## 🎯 Subscription Plans & FREE Daily Limits
+
+### Two-Tier Model
+
+**IWRITE v2** includes a two-tier subscription model with daily usage limits for AI generation features:
+
+- **FREE Plan:** 20 AI generations per day (limit resets daily at UTC midnight)
+- **PAID Plan (PRO_MONTHLY / PRO_YEARLY):** Unlimited AI usage
+
+Limit enforcement applies to all AI endpoints:
+- `POST /api/documents/generate` – Create new AI-generated documents
+- `POST /api/documents/:id/rewrite` – Rewrite documents with AI
+- `POST /api/documents/:id/translate` – Translate documents with AI
+- `POST /api/documents/:id/qa-check` – Run AI-powered quality assurance checks
+
+Non-AI features (templates, style profiles, uploads, etc.) are unrestricted for all users.
+
+### Seeding Test Accounts
+
+To create test accounts for both FREE and PAID plans, use the seeding script:
+
+```bash
+npm run seed:users
+```
+
+This command creates or updates two test users (idempotent, safe to run multiple times):
+
+- **FREE User**
+  - Email: `test@example.com` (set via `SEED_FREE_USER_EMAIL`)
+  - Plan: `FREE`
+  - Password: `Test1234` (set via `SEED_FREE_USER_PASSWORD`)
+
+- **PRO User**
+  - Email: `mhtrading@gmail.com` (set via `SEED_PRO_USER_EMAIL`)
+  - Plan: `PRO_MONTHLY` (set via `SEED_PRO_USER_PLAN`)
+  - Password: `test@123` (set via `SEED_PRO_USER_PASSWORD`)
+
+**Note:** Passwords are provided via environment variables, not hardcoded in the repository.
+
+### Testing Limits in Development
+
+1. **Test FREE Plan Limits:**
+   - Login as `test@example.com`
+   - Attempt 21+ AI generations (document generation, rewrites, translations, or QA checks)
+   - After 20 uses, the 21st attempt returns HTTP 429 with error code `FREE_DAILY_LIMIT_REACHED`
+   - Verify the app does NOT crash and shows a user-friendly upgrade prompt
+
+2. **Test PAID Plan (Unlimited):**
+   - Login as `mhtrading@gmail.com`
+   - Perform 50+ AI generations
+   - Confirm all requests succeed with no blocking
 
 ---
 
