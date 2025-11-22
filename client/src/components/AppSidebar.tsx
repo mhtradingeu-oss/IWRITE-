@@ -1,4 +1,4 @@
-import { Home, FileText, Upload, Layout, Wand2, Settings, Archive, FolderOpen, Tag, Search } from "lucide-react";
+import { Home, FileText, Upload, Layout, Wand2, Settings, Archive, FolderOpen, Tag, Search, Sparkles } from "lucide-react";
 import { useLocation, Link } from "wouter";
 import {
   Sidebar,
@@ -19,6 +19,7 @@ const translations = {
   en: {
     workspace: "Workspace",
     dashboard: "Dashboard",
+    aiWriter: "AI Writer",
     documents: "Documents",
     uploads: "File Uploads",
     templates: "Templates",
@@ -33,6 +34,7 @@ const translations = {
   ar: {
     workspace: "مساحة العمل",
     dashboard: "لوحة التحكم",
+    aiWriter: "كاتب الذكاء الاصطناعي",
     documents: "المستندات",
     uploads: "رفع الملفات",
     templates: "القوالب",
@@ -47,6 +49,7 @@ const translations = {
   de: {
     workspace: "Arbeitsbereich",
     dashboard: "Dashboard",
+    aiWriter: "KI-Autor",
     documents: "Dokumente",
     uploads: "Datei-Uploads",
     templates: "Vorlagen",
@@ -65,6 +68,11 @@ const mainItems = [
     title: "dashboard",
     url: "/",
     icon: Home,
+  },
+  {
+    title: "aiWriter",
+    url: "/ai-writer",
+    icon: Sparkles,
   },
   {
     title: "documents",
