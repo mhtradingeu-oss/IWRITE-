@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Sparkles, Send, RefreshCw, FileDown, Check, AlertTriangle, X } from "lucide-react";
+import { Sparkles, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,22 +20,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/components/LanguageProvider";
+import { isPro, isFree } from "@/lib/auth-helpers";
 import type { UploadedFile, Topic } from "@shared/schema";
 
 const translations = {
   en: {
     aiWriter: "AI Writer",
-    subtitle: "Professional document creation with AI assistance",
-    prompt: "Prompt",
-    promptPlaceholder: "Describe exactly what you want the AI to generate or improve...",
-    taskPresets: "Task Presets",
-    newDocument: "New Document from Sources",
-    rewriteImprove: "Rewrite & Improve",
-    summarize: "Summarize",
-    expand: "Expand / Add Detail",
-    translate: "Translate",
-    fixStyle: "Fix Style & Tone",
-    generateVariants: "Generate Variants",
+    subtitle: "Create professional documents from prompts. Rewrite, translate, and improve content in Arabic, German, and English.",
+    prompt: "What would you like to create or improve?",
+    promptPlaceholder: "Be specific: describe the document type, audience, key points, and tone you want...",
+    createNewDocument: "Create New Document",
+    generateDocumentButton: "Generate New Document",
+    advancedTools: "Advanced Tools",
+    advancedToolsDescription: "Additional AI capabilities for existing content",
     documentType: "Document Type",
     catalogPage: "Catalog Page",
     productSheet: "Product Sheet",
@@ -44,7 +41,6 @@ const translations = {
     sop: "SOP / Internal Guide",
     email: "Email / Letter",
     marketingPage: "Marketing Page",
-    qualityOptions: "Quality Options",
     targetLength: "Target Length",
     short: "Short",
     medium: "Medium",
@@ -54,44 +50,45 @@ const translations = {
     business: "Business",
     friendly: "Friendly-but-professional",
     language: "Language",
-    generate: "Generate Draft",
-    improve: "Improve Current Draft",
-    editor: "Document Editor",
+    generate: "Generate",
+    improve: "Improve",
+    editor: "Document Preview",
     title: "Document Title",
     untitled: "Untitled Document",
-    showStructure: "Show Structure",
     sources: "Sources",
     documents: "Documents",
     topics: "Topics",
-    selectSources: "Selected sources are used to ground AI generations",
+    selectSources: "Ground generations with your documents and topics",
     templates: "Templates",
     chooseTemplate: "Choose a template",
     applyOnExport: "Apply template styling on export only",
-    qa: "QA Checks",
-    runQA: "Run QA Checks",
-    qaResults: "QA Results",
-    noIssues: "No issues found",
-    issue: "Issue",
-    suggestion: "Suggested Fix",
-    severity: "Severity",
     loading: "Generating...",
     error: "Something went wrong",
     success: "Generated successfully",
     characterCount: "characters",
+    tips: "Tips for better results",
+    tip1: "Be specific about document type and target audience",
+    tip2: "Reference uploaded files by their title in prompts",
+    tip3: "Use AR/DE/EN language selector for multilingual content",
+    freeUserLimit: "FREE plan – 5 generations remaining today",
+    proUser: "PRO – Unlimited daily generations",
+    openInDocuments: "Open in Documents",
+    rewriteImprove: "Rewrite & Improve",
+    summarize: "Summarize",
+    expand: "Expand / Add Detail",
+    translate: "Translate",
+    fixStyle: "Fix Style & Tone",
+    generateVariants: "Generate Variants",
   },
   ar: {
     aiWriter: "كاتب الذكاء الاصطناعي",
-    subtitle: "إنشاء مستندات احترافية بمساعدة الذكاء الاصطناعي",
-    prompt: "التعليمات",
-    promptPlaceholder: "صف بالضبط ما تريد من الذكاء الاصطناعي أن ينشئه أو يحسنه...",
-    taskPresets: "المهام المحددة مسبقاً",
-    newDocument: "مستند جديد من المصادر",
-    rewriteImprove: "إعادة الكتابة والتحسين",
-    summarize: "ملخص",
-    expand: "توسيع / إضافة تفاصيل",
-    translate: "ترجمة",
-    fixStyle: "إصلاح الأسلوب والنبرة",
-    generateVariants: "توليد متغيرات",
+    subtitle: "أنشئ مستندات احترافية من التعليمات. أعد كتابة والترجمة وحسّن المحتوى باللغة العربية والألمانية والإنجليزية.",
+    prompt: "ما الذي تريد إنشاءه أو تحسينه؟",
+    promptPlaceholder: "كن محدداً: صف نوع المستند والجمهور المستهدف والنقاط الرئيسية والنبرة المطلوبة...",
+    createNewDocument: "إنشاء مستند جديد",
+    generateDocumentButton: "إنشاء المستند",
+    advancedTools: "أدوات متقدمة",
+    advancedToolsDescription: "قدرات ذكاء اصطناعي إضافية للمحتوى الموجود",
     documentType: "نوع المستند",
     catalogPage: "صفحة كاتالوج",
     productSheet: "ورقة المنتج",
@@ -100,7 +97,6 @@ const translations = {
     sop: "SOP / دليل داخلي",
     email: "البريد الإلكتروني / الرسالة",
     marketingPage: "صفحة التسويق",
-    qualityOptions: "خيارات الجودة",
     targetLength: "الطول المستهدف",
     short: "قصير",
     medium: "متوسط",
@@ -110,44 +106,45 @@ const translations = {
     business: "أعمال",
     friendly: "ودود لكن احترافي",
     language: "اللغة",
-    generate: "إنشاء مسودة",
-    improve: "تحسين المسودة الحالية",
-    editor: "محرر المستند",
+    generate: "إنشاء",
+    improve: "تحسين",
+    editor: "معاينة المستند",
     title: "عنوان المستند",
     untitled: "مستند بدون عنوان",
-    showStructure: "إظهار البنية",
     sources: "المصادر",
     documents: "المستندات",
     topics: "المواضيع",
-    selectSources: "تُستخدم المصادر المحددة لتأسيس إنشاء الذكاء الاصطناعي",
+    selectSources: "ركّز الإنشاء باستخدام مستنداتك ومواضيعك",
     templates: "القوالب",
     chooseTemplate: "اختر قالباً",
     applyOnExport: "تطبيق تنسيق القالب عند التصدير فقط",
-    qa: "فحوصات الجودة",
-    runQA: "تشغيل فحوصات الجودة",
-    qaResults: "نتائج الجودة",
-    noIssues: "لم يتم العثور على مشاكل",
-    issue: "المشكلة",
-    suggestion: "الإصلاح المقترح",
-    severity: "الخطورة",
     loading: "جاري الإنشاء...",
     error: "حدث خطأ ما",
     success: "تم الإنشاء بنجاح",
     characterCount: "أحرف",
+    tips: "نصائح للنتائج الأفضل",
+    tip1: "كن محدداً حول نوع المستند والجمهور المستهدف",
+    tip2: "أشِر إلى الملفات المرفوعة باسمها في التعليمات",
+    tip3: "استخدم محدد اللغة AR/DE/EN للمحتوى متعدد اللغات",
+    freeUserLimit: "الخطة المجانية – 5 إنشاءات متبقية اليوم",
+    proUser: "PRO – عمليات إنشاء غير محدودة يومياً",
+    openInDocuments: "فتح في المستندات",
+    rewriteImprove: "إعادة الكتابة والتحسين",
+    summarize: "ملخص",
+    expand: "توسيع / إضافة تفاصيل",
+    translate: "ترجمة",
+    fixStyle: "إصلاح الأسلوب والنبرة",
+    generateVariants: "توليد متغيرات",
   },
   de: {
     aiWriter: "KI-Autor",
-    subtitle: "Professionelle Dokumentenerstellung mit KI-Unterstützung",
-    prompt: "Eingabeaufforderung",
-    promptPlaceholder: "Beschreiben Sie genau, was die KI generieren oder verbessern soll...",
-    taskPresets: "Vordefinierte Aufgaben",
-    newDocument: "Neues Dokument aus Quellen",
-    rewriteImprove: "Umschreiben und Verbessern",
-    summarize: "Zusammenfassung",
-    expand: "Erweitern / Mehr Details",
-    translate: "Übersetzen",
-    fixStyle: "Stil und Ton anpassen",
-    generateVariants: "Varianten generieren",
+    subtitle: "Erstellen Sie professionelle Dokumente aus Eingaben. Schreiben Sie um, übersetzen und verbessern Sie Inhalte auf Arabisch, Deutsch und Englisch.",
+    prompt: "Was möchten Sie erstellen oder verbessern?",
+    promptPlaceholder: "Seien Sie spezifisch: beschreiben Sie den Dokumenttyp, die Zielgruppe, wichtige Punkte und den Ton...",
+    createNewDocument: "Neues Dokument erstellen",
+    generateDocumentButton: "Dokument generieren",
+    advancedTools: "Erweiterte Tools",
+    advancedToolsDescription: "Zusätzliche KI-Fähigkeiten für bestehende Inhalte",
     documentType: "Dokumenttyp",
     catalogPage: "Katalogseite",
     productSheet: "Produktblatt",
@@ -156,7 +153,6 @@ const translations = {
     sop: "SOP / Interner Leitfaden",
     email: "E-Mail / Brief",
     marketingPage: "Marketingseite",
-    qualityOptions: "Qualitätsoptionen",
     targetLength: "Ziellänge",
     short: "Kurz",
     medium: "Mittel",
@@ -166,42 +162,37 @@ const translations = {
     business: "Geschäft",
     friendly: "Freundlich, aber professionell",
     language: "Sprache",
-    generate: "Entwurf generieren",
-    improve: "Aktuellen Entwurf verbessern",
-    editor: "Dokumenteditor",
+    generate: "Generieren",
+    improve: "Verbessern",
+    editor: "Dokumentvorschau",
     title: "Dokumenttitel",
     untitled: "Unbenanntes Dokument",
-    showStructure: "Struktur anzeigen",
     sources: "Quellen",
     documents: "Dokumente",
     topics: "Themen",
-    selectSources: "Ausgewählte Quellen werden zur Begründung von KI-Generierungen verwendet",
+    selectSources: "Fundieren Sie Generierungen mit Ihren Dokumenten und Themen",
     templates: "Vorlagen",
     chooseTemplate: "Wählen Sie eine Vorlage",
     applyOnExport: "Vorlagenstil nur beim Export anwenden",
-    qa: "Qualitätsprüfungen",
-    runQA: "Qualitätsprüfungen durchführen",
-    qaResults: "Qualitätsergebnisse",
-    noIssues: "Keine Probleme gefunden",
-    issue: "Problem",
-    suggestion: "Vorschlag zur Behebung",
-    severity: "Schweregrad",
     loading: "Wird generiert...",
     error: "Etwas ist schief gelaufen",
     success: "Erfolgreich generiert",
     characterCount: "Zeichen",
+    tips: "Tipps für bessere Ergebnisse",
+    tip1: "Seien Sie spezifisch hinsichtlich Dokumenttyp und Zielgruppe",
+    tip2: "Referenzieren Sie hochgeladene Dateien in Eingaben nach Name",
+    tip3: "Verwenden Sie die Sprachauswahl AR/DE/EN für mehrsprachige Inhalte",
+    freeUserLimit: "KOSTENLOS – 5 Generierungen noch heute verfügbar",
+    proUser: "PRO – Unbegrenzte tägliche Generierungen",
+    openInDocuments: "In Dokumenten öffnen",
+    rewriteImprove: "Umschreiben und Verbessern",
+    summarize: "Zusammenfassung",
+    expand: "Erweitern / Mehr Details",
+    translate: "Übersetzen",
+    fixStyle: "Stil und Ton anpassen",
+    generateVariants: "Varianten generieren",
   },
 };
-
-const taskPresetButtons = [
-  "newDocument",
-  "rewriteImprove",
-  "summarize",
-  "expand",
-  "translate",
-  "fixStyle",
-  "generateVariants",
-];
 
 export default function AIWriter() {
   const { language } = useLanguage();
@@ -212,16 +203,25 @@ export default function AIWriter() {
   const [prompt, setPrompt] = useState("");
   const [title, setTitle] = useState(t.untitled);
   const [generatedContent, setGeneratedContent] = useState("");
-  const [documentType, setDocumentType] = useState("product-page");
+  const [documentType, setDocumentType] = useState("product-sheet");
   const [selectedLanguage, setSelectedLanguage] = useState(language);
   const [targetLength, setTargetLength] = useState("medium");
   const [formality, setFormality] = useState("business");
-  const [selectedSources, setSelectedSources] = useState<string[]>([]);
-  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [templateId, setTemplateId] = useState("");
-  const [showStructure, setShowStructure] = useState(false);
+  const [savedDocId, setSavedDocId] = useState<string | null>(null);
 
-  // Fetch documents and topics
+  // Fetch user data for plan/usage info
+  const { data: user } = useQuery({
+    queryKey: ["/auth/me"],
+    queryFn: async () => {
+      const response = await fetch("/auth/me", { credentials: "include" });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.user;
+    },
+  });
+
+  // Fetch documents, topics, and templates
   const { data: documents = [] } = useQuery({
     queryKey: ["/api/documents"],
   });
@@ -237,24 +237,23 @@ export default function AIWriter() {
   // AI generation mutation
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/ai-writer/generate", {
+      const response = await apiRequest("POST", "/api/documents/generate", {
         prompt,
         documentType,
         language: selectedLanguage,
         targetLength,
         formality,
-        templateId,
-        sourceDocumentIds: selectedSources,
-        topicIds: selectedTopics,
-        currentContent: generatedContent,
+        templateId: templateId || undefined,
       });
       return response;
     },
     onSuccess: (data) => {
       setGeneratedContent(data.content || "");
+      setTitle(data.title || t.untitled);
+      setSavedDocId(data.id);
       toast({
         title: t.success,
-        description: "Your draft has been generated",
+        description: "Document generated successfully!",
       });
     },
     onError: (error: any) => {
@@ -266,253 +265,250 @@ export default function AIWriter() {
     },
   });
 
-  const handleTaskPreset = (preset: string) => {
-    const presets: Record<string, string> = {
-      newDocument: "Create a new, comprehensive document based on the selected sources and prompt",
-      rewriteImprove: "Rewrite and improve the current draft to be clearer and more professional",
-      summarize: "Summarize the current draft into a concise version",
-      expand: "Expand the current draft with more details and examples",
-      translate: "Translate the current draft into the selected language",
-      fixStyle: "Fix the style and tone to match the selected formality level",
-      generateVariants: "Generate multiple variants of the current draft with different approaches",
-    };
-    setPrompt(presets[preset] || "");
-  };
-
   return (
-    <div className={`flex h-full ${isRTL ? "flex-row-reverse" : "flex-row"}`}>
-      {/* Left Panel - Prompt & Controls */}
-      <div className="w-[30%] border-r border-border bg-card overflow-y-auto">
-        <div className="p-6 space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Sparkles className="h-6 w-6 text-primary" />
+    <div className="flex flex-col h-full gap-6 p-6 overflow-y-auto">
+      {/* Header */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              <Sparkles className="h-8 w-8 text-primary" />
               {t.aiWriter}
             </h1>
-            <p className="text-sm text-muted-foreground mt-1">{t.subtitle}</p>
-          </div>
-
-          {/* Prompt */}
-          <div className="space-y-2">
-            <Label htmlFor="prompt">{t.prompt}</Label>
-            <Textarea
-              id="prompt"
-              placeholder={t.promptPlaceholder}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              className="min-h-24 resize-none"
-              data-testid="textarea-ai-prompt"
-            />
-            <div className="text-xs text-muted-foreground text-right">
-              {prompt.length} {t.characterCount}
-            </div>
-          </div>
-
-          {/* Task Presets */}
-          <div className="space-y-2">
-            <Label>{t.taskPresets}</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {taskPresetButtons.map((preset) => (
-                <Button
-                  key={preset}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleTaskPreset(preset)}
-                  className="text-xs h-auto py-2"
-                  data-testid={`button-preset-${preset}`}
-                >
-                  {t[preset as keyof typeof t]}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          {/* Document Type */}
-          <div className="space-y-2">
-            <Label htmlFor="doctype">{t.documentType}</Label>
-            <Select value={documentType} onValueChange={setDocumentType}>
-              <SelectTrigger id="doctype" data-testid="select-document-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="catalog-page">{t.catalogPage}</SelectItem>
-                <SelectItem value="product-sheet">{t.productSheet}</SelectItem>
-                <SelectItem value="distributor-offer">{t.distributorOffer}</SelectItem>
-                <SelectItem value="contract">{t.contract}</SelectItem>
-                <SelectItem value="sop">{t.sop}</SelectItem>
-                <SelectItem value="email">{t.email}</SelectItem>
-                <SelectItem value="marketing-page">{t.marketingPage}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Quality Options */}
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="length">{t.targetLength}</Label>
-              <Select value={targetLength} onValueChange={setTargetLength}>
-                <SelectTrigger id="length" data-testid="select-target-length">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="short">{t.short}</SelectItem>
-                  <SelectItem value="medium">{t.medium}</SelectItem>
-                  <SelectItem value="long">{t.long}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="formality">{t.formality}</Label>
-              <Select value={formality} onValueChange={setFormality}>
-                <SelectTrigger id="formality" data-testid="select-formality">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="very-formal">{t.veryFormal}</SelectItem>
-                  <SelectItem value="business">{t.business}</SelectItem>
-                  <SelectItem value="friendly">{t.friendly}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <Label htmlFor="language">{t.language}</Label>
-              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                <SelectTrigger id="language" data-testid="select-language">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="ar">العربية</SelectItem>
-                  <SelectItem value="de">Deutsch</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-2 pt-4">
-            <Button
-              onClick={() => generateMutation.mutate()}
-              disabled={!prompt || generateMutation.isPending}
-              className="flex-1"
-              data-testid="button-generate"
-            >
-              {generateMutation.isPending ? (
-                <>
-                  <Sparkles className="h-4 w-4 animate-spin" />
-                  {t.loading}
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  {t.generate}
-                </>
-              )}
-            </Button>
-            {generatedContent && (
-              <Button
-                variant="outline"
-                onClick={() => generateMutation.mutate()}
-                disabled={!prompt || generateMutation.isPending}
-                data-testid="button-improve"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+            {user && (
+              <Badge variant={isPro(user.plan) ? "default" : "secondary"} data-testid="badge-plan">
+                {isPro(user.plan) ? t.proUser : t.freeUserLimit}
+              </Badge>
             )}
           </div>
         </div>
+        <p className="text-muted-foreground">{t.subtitle}</p>
       </div>
 
-      {/* Center Panel - Document Editor */}
-      <div className="flex-1 flex flex-col bg-background">
-        <div className="border-b border-border p-4 space-y-4">
-          <Input
-            placeholder={t.title}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="text-xl font-semibold"
-            data-testid="input-document-title"
-          />
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="structure"
-              checked={showStructure}
-              onCheckedChange={setShowStructure}
-              data-testid="checkbox-show-structure"
-            />
-            <Label htmlFor="structure" className="cursor-pointer">
-              {t.showStructure}
-            </Label>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content - Left Side */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Create New Document */}
+          <Card data-testid="card-create-document">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5" />
+                {t.createNewDocument}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Prompt */}
+              <div className="space-y-2">
+                <Label htmlFor="prompt">{t.prompt}</Label>
+                <Textarea
+                  id="prompt"
+                  placeholder={t.promptPlaceholder}
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  className="min-h-32 resize-none"
+                  data-testid="textarea-ai-prompt"
+                />
+                <div className="text-xs text-muted-foreground text-right">
+                  {prompt.length} {t.characterCount}
+                </div>
+              </div>
 
-        {/* Editor Area */}
-        <div className="flex-1 overflow-auto p-6">
-          {generateMutation.isPending ? (
-            <div className="space-y-3">
-              <Skeleton className="h-8 w-3/4" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-2/3" />
-            </div>
-          ) : generatedContent ? (
-            <Card className="border-0 shadow-none">
-              <CardContent className="p-0 prose prose-sm max-w-none dark:prose-invert">
-                <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                  {generatedContent}
+              {/* Options Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="doctype">{t.documentType}</Label>
+                  <Select value={documentType} onValueChange={setDocumentType}>
+                    <SelectTrigger id="doctype" data-testid="select-document-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="catalog-page">{t.catalogPage}</SelectItem>
+                      <SelectItem value="product-sheet">{t.productSheet}</SelectItem>
+                      <SelectItem value="distributor-offer">{t.distributorOffer}</SelectItem>
+                      <SelectItem value="contract">{t.contract}</SelectItem>
+                      <SelectItem value="sop">{t.sop}</SelectItem>
+                      <SelectItem value="email">{t.email}</SelectItem>
+                      <SelectItem value="marketing-page">{t.marketingPage}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="language">{t.language}</Label>
+                  <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                    <SelectTrigger id="language" data-testid="select-language">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="ar">العربية</SelectItem>
+                      <SelectItem value="de">Deutsch</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="length">{t.targetLength}</Label>
+                  <Select value={targetLength} onValueChange={setTargetLength}>
+                    <SelectTrigger id="length" data-testid="select-target-length">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="short">{t.short}</SelectItem>
+                      <SelectItem value="medium">{t.medium}</SelectItem>
+                      <SelectItem value="long">{t.long}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="formality">{t.formality}</Label>
+                  <Select value={formality} onValueChange={setFormality}>
+                    <SelectTrigger id="formality" data-testid="select-formality">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="very-formal">{t.veryFormal}</SelectItem>
+                      <SelectItem value="business">{t.business}</SelectItem>
+                      <SelectItem value="friendly">{t.friendly}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Generate Button */}
+              <Button
+                onClick={() => generateMutation.mutate()}
+                disabled={!prompt || generateMutation.isPending}
+                size="lg"
+                className="w-full"
+                data-testid="button-generate"
+              >
+                {generateMutation.isPending ? (
+                  <>
+                    <Sparkles className="h-4 w-4 animate-spin mr-2" />
+                    {t.loading}
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    {t.generateDocumentButton}
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Generated Content Preview */}
+          {generatedContent && (
+            <Card data-testid="card-preview">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <div>
+                  <CardTitle>{t.editor}</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {generatedContent.length} {t.characterCount}
+                  </p>
+                </div>
+                {savedDocId && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => (window.location.href = `/documents/${savedDocId}`)}
+                    data-testid="button-open-document"
+                  >
+                    {t.openInDocuments}
+                  </Button>
+                )}
+              </CardHeader>
+              <CardContent>
+                <div className="bg-muted/30 p-4 rounded-md max-h-96 overflow-y-auto">
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                    {generatedContent}
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          ) : (
-            <div className="text-center text-muted-foreground py-12">
-              <p>{t.editor}</p>
-              <p className="text-xs mt-2">Generated content will appear here</p>
-            </div>
           )}
         </div>
-      </div>
 
-      {/* Right Panel - Sources, Templates & QA */}
-      <div className="w-[25%] border-l border-border bg-card overflow-y-auto">
-        <Tabs defaultValue="sources" className="h-full flex flex-col">
-          <TabsList className="grid w-full grid-cols-3 rounded-none border-b">
-            <TabsTrigger value="sources" data-testid="tab-sources">
-              {t.sources}
-            </TabsTrigger>
-            <TabsTrigger value="templates" data-testid="tab-templates">
-              {t.templates}
-            </TabsTrigger>
-            <TabsTrigger value="qa" data-testid="tab-qa">
-              {t.qa}
-            </TabsTrigger>
-          </TabsList>
+        {/* Sidebar - Right */}
+        <div className="space-y-6">
+          {/* Advanced Tools */}
+          <Card data-testid="card-advanced-tools">
+            <CardHeader>
+              <CardTitle className="text-base">{t.advancedTools}</CardTitle>
+              <CardDescription className="text-xs">{t.advancedToolsDescription}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-2">
+                {["rewriteImprove", "summarize", "expand", "translate", "fixStyle", "generateVariants"].map(
+                  (preset) => (
+                    <Button
+                      key={preset}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPrompt(t[preset as keyof typeof t])}
+                      className="text-xs h-auto py-2"
+                      data-testid={`button-preset-${preset}`}
+                    >
+                      {t[preset as keyof typeof t]}
+                    </Button>
+                  )
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Sources Tab */}
-          <TabsContent value="sources" className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div className="space-y-2">
+          {/* Tips */}
+          <Card data-testid="card-tips">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Lightbulb className="h-4 w-4" />
+                {t.tips}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-xs text-muted-foreground">
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">•</span>
+                  <span>{t.tip1}</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">•</span>
+                  <span>{t.tip2}</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-primary font-bold">•</span>
+                  <span>{t.tip3}</span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          {/* Sources & Templates Tabs */}
+          <Tabs defaultValue="sources" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="sources" data-testid="tab-sources" className="text-xs">
+                {t.sources}
+              </TabsTrigger>
+              <TabsTrigger value="templates" data-testid="tab-templates" className="text-xs">
+                {t.templates}
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Sources Tab */}
+            <TabsContent value="sources" className="space-y-3 mt-4">
               <div className="text-xs text-muted-foreground">{t.selectSources}</div>
 
               {/* Documents */}
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm">{t.documents}</h4>
-                {documents.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No documents available</p>
-                ) : (
+              {documents.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">{t.documents}</h4>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
                     {documents.map((doc: any) => (
                       <div key={doc.id} className="flex items-start gap-2 p-2 rounded hover:bg-muted">
                         <Checkbox
                           id={`doc-${doc.id}`}
-                          checked={selectedSources.includes(doc.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedSources([...selectedSources, doc.id]);
-                            } else {
-                              setSelectedSources(selectedSources.filter((id) => id !== doc.id));
-                            }
-                          }}
                           data-testid={`checkbox-source-doc-${doc.id}`}
                         />
                         <label
@@ -524,28 +520,18 @@ export default function AIWriter() {
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Topics */}
-              <div className="space-y-2">
-                <h4 className="font-semibold text-sm">{t.topics}</h4>
-                {topics.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No topics available</p>
-                ) : (
+              {topics.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm">{t.topics}</h4>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
                     {topics.map((topic: any) => (
                       <div key={topic.id} className="flex items-start gap-2 p-2 rounded hover:bg-muted">
                         <Checkbox
                           id={`topic-${topic.id}`}
-                          checked={selectedTopics.includes(topic.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setSelectedTopics([...selectedTopics, topic.id]);
-                            } else {
-                              setSelectedTopics(selectedTopics.filter((id) => id !== topic.id));
-                            }
-                          }}
                           data-testid={`checkbox-source-topic-${topic.id}`}
                         />
                         <label htmlFor={`topic-${topic.id}`} className="flex-1 text-xs cursor-pointer">
@@ -559,14 +545,12 @@ export default function AIWriter() {
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
-            </div>
-          </TabsContent>
+                </div>
+              )}
+            </TabsContent>
 
-          {/* Templates Tab */}
-          <TabsContent value="templates" className="flex-1 overflow-y-auto p-4 space-y-4">
-            <div className="space-y-2">
+            {/* Templates Tab */}
+            <TabsContent value="templates" className="space-y-3 mt-4">
               <Label htmlFor="template">{t.chooseTemplate}</Label>
               <Select value={templateId} onValueChange={setTemplateId}>
                 <SelectTrigger id="template" data-testid="select-template">
@@ -580,41 +564,9 @@ export default function AIWriter() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="flex items-center gap-2 pt-4">
-              <Checkbox
-                id="applyOnExport"
-                defaultChecked
-                data-testid="checkbox-apply-template"
-              />
-              <Label htmlFor="applyOnExport" className="text-xs cursor-pointer font-normal">
-                {t.applyOnExport}
-              </Label>
-            </div>
-          </TabsContent>
-
-          {/* QA Tab */}
-          <TabsContent value="qa" className="flex-1 overflow-y-auto p-4 space-y-4">
-            <Button
-              onClick={() => {
-                toast({
-                  title: "QA Check",
-                  description: "QA checks would run here",
-                });
-              }}
-              className="w-full"
-              data-testid="button-run-qa"
-            >
-              {t.runQA}
-            </Button>
-
-            <div className="space-y-2">
-              <h4 className="font-semibold text-sm">{t.qaResults}</h4>
-              <div className="text-xs text-muted-foreground">{t.noIssues}</div>
-            </div>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );
