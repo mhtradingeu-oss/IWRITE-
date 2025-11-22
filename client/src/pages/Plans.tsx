@@ -1,8 +1,10 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Check, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Check, Loader2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { startUpgrade } from "@/lib/upgradeHelper";
 
 const plans = [
   {
@@ -64,31 +66,37 @@ export default function Plans() {
     },
   });
 
-  const upgradeMutation = useMutation({
-    mutationFn: async (planType: "monthly" | "yearly") => {
+  const [stripeNotConfigured, setStripeNotConfigured] = useQuery({
+    queryKey: ["/api/billing/stripe-status"],
+    queryFn: async () => {
       const response = await fetch("/api/billing/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planType }),
+        body: JSON.stringify({ planType: "monthly" }),
         credentials: "include",
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create checkout session");
-      }
-
-      return response.json();
+      return response.status === 503;
     },
-    onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
+    enabled: false,
+  });
+
+  const upgradeMutation = useMutation({
+    mutationFn: async (planType: "monthly" | "yearly") => {
+      const result = await startUpgrade(planType);
+      if (result.state === "error" || result.state === "not-configured") {
+        throw new Error(result.error || "Failed to start upgrade");
       }
+      return result;
     },
     onError: (error: any) => {
+      const message = error.message || "Failed to start upgrade process";
+      if (message.includes("not configured")) {
+        // Don't show toast for Stripe not configured - it's handled in UI
+        return;
+      }
       toast({
-        title: "Error",
-        description: error.message || "Failed to start upgrade process",
+        title: "Upgrade Failed",
+        description: message,
         variant: "destructive",
       });
     },
@@ -102,6 +110,14 @@ export default function Plans() {
           Choose the plan that fits your needs
         </p>
       </div>
+
+      {/* Stripe Not Configured Warning */}
+      <Alert className="mb-8 border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        <AlertDescription className="text-amber-800 dark:text-amber-200">
+          Stripe payment processing is not currently configured. Please contact the administrator to set up billing.
+        </AlertDescription>
+      </Alert>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {plans.map((plan) => (
@@ -124,12 +140,12 @@ export default function Plans() {
               className="w-full mb-8"
               variant={plan.id === user?.plan ? "outline" : "default"}
               disabled={plan.id === user?.plan || upgradeMutation.isPending}
+              data-testid={`button-select-plan-${plan.id}`}
               onClick={() => {
                 if (plan.id === "FREE") return;
                 const planType = plan.id === "PRO_MONTHLY" ? "monthly" : "yearly";
                 upgradeMutation.mutate(planType);
               }}
-              data-testid={`button-select-plan-${plan.id}`}
             >
               {upgradeMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
               {plan.id === user?.plan ? "Current Plan" : plan.id === "FREE" ? "Your Plan" : "Upgrade Now"}

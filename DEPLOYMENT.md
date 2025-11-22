@@ -86,6 +86,123 @@ npm run start
 | `FREE_DAILY_LIMIT` | Daily AI generation limit for FREE plan | `20` |
 | `SEED_FREE_USER_EMAIL` | FREE test account email used by seed:users | `test@example.com` |
 | `SEED_PRO_USER_EMAIL` | PRO test account email used by seed:users | `mhtrading@gmail.com` |
+| `ADMIN_EMAIL` | Email address that gets admin access | `mhtrading@gmail.com` |
+
+---
+
+## 💳 Stripe & Billing Configuration
+
+### Setup Steps
+
+**Option A: Production (with Stripe)**
+
+1. **Create Stripe Account** (if not done)
+   - Visit https://stripe.com and sign up
+   - Verify your business details
+
+2. **Create Products and Prices**
+   - In Stripe Dashboard → Products → Create product
+   - Name: "PRO Monthly" (or your preference)
+   - Type: Recurring, Monthly billing
+   - Copy the **Price ID** (looks like `price_xxx`)
+   - Repeat for yearly plan if desired
+
+3. **Set Environment Variables**
+   ```bash
+   export STRIPE_SECRET_KEY="sk_live_..."       # From Stripe → Developers → API Keys
+   export STRIPE_PRICE_ID_MONTHLY="price_xxx"   # Monthly plan price ID
+   export STRIPE_PRICE_ID_YEARLY="price_yyy"    # Yearly plan price ID (optional)
+   export STRIPE_WEBHOOK_SECRET="whsec_..."     # From Stripe → Developers → Webhooks
+   ```
+
+4. **Configure Webhook** (if accepting payments)
+   - In Stripe Dashboard → Developers → Webhooks → Add endpoint
+   - Endpoint URL: `https://your-domain.com/api/billing/webhook`
+   - Events to listen: `checkout.session.completed`
+   - Copy the signing secret and set as `STRIPE_WEBHOOK_SECRET`
+
+5. **Test the Flow**
+   - Login as FREE user
+   - Navigate to /plans or Settings
+   - Click "Upgrade to PRO"
+   - Should redirect to Stripe Checkout
+   - Complete payment (use test card: 4242 4242 4242 4242)
+   - On success, user plan is automatically updated to PRO
+
+**Option B: Development (without Stripe)**
+
+- Leave `STRIPE_SECRET_KEY` unset
+- Upgrade buttons will show a friendly "Stripe not configured" message
+- User can still manually upgrade via `/auth/upgrade` endpoint (for testing)
+- All other features work normally
+
+### Behavior
+
+- **Stripe Configured**: Users can purchase upgrades via Stripe Checkout
+- **Stripe Not Configured**: 
+  - Upgrade buttons show a friendly message
+  - No crash or red error toast
+  - Users see the banner: "Stripe is not configured. Please contact the administrator."
+  - Admin can manually upgrade users via the Admin panel
+
+---
+
+## 👨‍💼 Admin Panel & Super Admin Features
+
+### Setup
+
+Set the `ADMIN_EMAIL` environment variable to grant super admin access:
+
+```bash
+export ADMIN_EMAIL="admin@example.com"   # Default: mhtrading@gmail.com
+```
+
+Only the user with this email address gains access to the admin panel and admin API endpoints.
+
+### Features
+
+The Admin user can access `/admin` (via sidebar menu) and perform:
+
+1. **View All Users**
+   - Email, current plan, daily usage stats
+   - Account creation date
+
+2. **Change User Plans**
+   - Upgrade/downgrade users to FREE, PRO_MONTHLY, or PRO_YEARLY
+   - No payment required (admin override)
+
+3. **Reset Daily Usage**
+   - Reset a user's daily AI generation count
+   - Useful for testing or customer support
+
+4. **System Stats**
+   - Total users, total documents, storage usage
+   - Quick health overview
+
+### Admin API Endpoints
+
+All admin endpoints require authentication and admin role:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/users` | List all users |
+| PUT | `/api/admin/users/:id/plan` | Change user's plan |
+| PUT | `/api/admin/users/:id/reset-usage` | Reset daily usage count |
+| GET | `/api/admin/stats` | System statistics |
+
+Example: Change a user's plan
+```bash
+curl -X PUT http://localhost:5000/api/admin/users/{userId}/plan \
+  -H "Content-Type: application/json" \
+  -d '{"plan": "PRO_MONTHLY"}' \
+  --cookie "token=..." # Admin's auth cookie
+```
+
+### Access Control
+
+- Non-admin users cannot access `/admin` page
+- Non-admin API calls to `/api/admin/*` return `403 Forbidden`
+- Only users with `role = "admin"` in the database can perform admin actions
 
 ### Configuration Validation
 

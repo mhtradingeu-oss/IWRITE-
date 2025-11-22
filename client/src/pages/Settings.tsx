@@ -181,22 +181,6 @@ export default function Settings() {
     },
   });
 
-  const [stripeConfigError, setStripeConfigError] = useQuery({
-    queryKey: ["/api/billing/create-checkout-session"],
-    queryFn: async () => {
-      const response = await fetch("/api/billing/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planType: "monthly" }),
-        credentials: "include",
-      });
-      if (response.status === 503) {
-        return { stripeConfigured: false };
-      }
-      return { stripeConfigured: true };
-    },
-    enabled: false,
-  });
 
   if (isLoading) {
     return (
@@ -389,27 +373,12 @@ export default function Settings() {
 
               {/* Upgrade Banner for FREE users */}
               {isFree && (
-                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-4 space-y-4">
-                  <div>
-                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100 mb-1">{t.upgradeNote}</p>
-                    <p className="text-xs text-amber-800 dark:text-amber-200">
-                      Get unlimited AI generations, priority support, and more with PRO.
-                    </p>
-                  </div>
-                  <Button
-                    onClick={() => upgradeMutation.mutate("monthly")}
-                    disabled={upgradeMutation.isPending}
-                    className="w-full gap-2"
-                    data-testid="button-upgrade-to-pro"
-                  >
-                    {upgradeMutation.isPending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <ArrowRight className="w-4 h-4" />
-                    )}
-                    Upgrade to PRO Now
-                  </Button>
-                </div>
+                <Alert className="border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <AlertDescription className="text-amber-800 dark:text-amber-200">
+                    Stripe payment processing is not currently configured. Please contact the administrator to upgrade your account.
+                  </AlertDescription>
+                </Alert>
               )}
             </CardContent>
           </Card>

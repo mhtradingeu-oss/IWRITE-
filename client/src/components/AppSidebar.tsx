@@ -142,7 +142,7 @@ export function AppSidebar() {
     },
   });
   
-  const isAdmin = user?.email === "mhtrading@gmail.com";
+  const isAdmin = user?.role === "admin";
 
   return (
     <Sidebar>
