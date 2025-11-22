@@ -1,0 +1,208 @@
+You are working on the IWRITE project (AI-powered document writing workspace for MH Trading GmbH).
+
+Back-end features (auth, plans, admin, billing, daily limits, topics, templates, etc.) are already implemented and considered correct.  
+The workspace UI (Dashboard, AI Writer, Songwriter, Documents, etc.) is largely complete.
+
+Now we need to build a **public Home / Landing Page** and do one last UI/content pass to ensure the app is production-ready from a front-end perspective.
+
+⚠️ IMPORTANT CONSTRAINTS
+
+- DO NOT change:
+  - API endpoints
+  - Database schema
+  - Auth, admin, plans, or billing logic
+  - QueryClientProvider setup
+- You MAY:
+  - Add/adjust React pages, routes, components
+  - Improve text/content/labels (EN/DE/AR)
+  - Tweak layout, spacing, navigation, and redirections
+
+Goal: A polished, multilingual marketing-style Home page + consistent, finished UI across all main pages.
+
+==================================================
+PART 1 – DESIGN & IMPLEMENT THE HOME / LANDING PAGE
+==================================================
+
+1) ROUTE & ACCESS
+
+- Create a dedicated Home / Landing Page component, e.g. `client/src/pages/Home.tsx`.
+- Add a public route for it, e.g.:
+
+  - `/` → Home (public marketing page)
+  - `/app/dashboard` or `/dashboard` → internal workspace (authenticated)
+
+- Behavior:
+
+  - If the user is not authenticated:
+    - `/` shows the Home page.
+    - If they try to access workspace routes, existing auth guards apply as before.
+  - If the user IS authenticated and visits `/`:
+    - Either:
+      - Show the Home page but with a “Go to Workspace” button, OR
+      - Redirect them directly to `/dashboard`.
+    - Choose the simpler option consistent with current routing.
+
+2) HOME PAGE CONTENT & LAYOUT
+
+Design a professional SaaS-style landing page that fits the current design system (dark theme, Fluent-inspired, Inter font, grid layout). Sections should include:
+
+- Hero section:
+  - Product name: **IWRITE**
+  - Tagline, e.g.:
+    - EN: “AI-powered document workspace for regulated, multilingual content.”
+    - DE: “KI-gestützter Dokumentenarbeitsplatz für rechtssichere, mehrsprachige Inhalte.”
+    - AR: “مساحة كتابة ذكية بالذكاء الاصطناعي لإنشاء مستندات احترافية ومتعددة اللغات.”
+  - Short subheading that mentions:
+    - German compliance, Arabic/German/English support
+    - Powered by MH Trading GmbH, developed by Crew Art
+  - Primary CTA:
+    - “Open Workspace” → `/dashboard` (or current app entry)
+  - Secondary CTA:
+    - “View Pricing” → Pricing section on the same page or `/settings#/plans` / `/plans` route (use whatever exists).
+
+- Key Features section (3–6 cards):
+  - Examples:
+    - AI Writer (documents, contracts, policies)
+    - Songwriter (lyrics generation)
+    - Templates & Style Profiles
+    - Topics & Search across knowledge base
+    - QA checks (medical claims, disclaimers, consistency)
+  - Each card:
+    - Title + 2–3 bullet points
+    - Icon
+    - “Open in app” link to the corresponding internal page.
+
+- Multilingual / Markets section:
+  - Emphasize:
+    - Full support for **Arabic (RTL)**, **German**, **English**.
+    - Use-case examples:
+      - AR: تسويق، عقود، سياسات، محتوى متجر إلكتروني.
+      - DE: Rechtstexte, AGB, Datenschutz, Produktbeschreibungen.
+      - EN: Global documentation, policies, marketing copy.
+
+- Compliance & Quality section:
+  - Mention: QA checks, medical claim checks, templates, auditability.
+
+- Company & Trust section:
+  - “Powered by MH Trading GmbH”
+  - Address (Polierweg 39, 12351 Berlin)
+  - HRB, VAT
+  - Small statement about German company, professionalism, and data handling (no need for legal deep dive; privacy page covers details).
+
+- Call-to-Action footer strip:
+  - “Start writing with IWRITE today”
+  - Button → `/dashboard` or login flow.
+
+3) MULTI-LANGUAGE TEXT (EN / DE / AR)
+
+- The Home page must support the **same language system** as the rest of the app:
+  - Use existing i18n mechanism (language toggle in top-right).
+  - For each text string on the Home page, provide translations in:
+
+    - English
+    - German
+    - Arabic (RTL, right-aligned when AR is active)
+
+- Use accurate, professional wording:
+  - Avoid placeholders like “Lorem ipsum” or “Coming soon”.
+  - Make it sound ready for a real client.
+
+- When Arabic is active:
+  - Mirror layout direction (RTL).
+  - Headings and paragraphs right-aligned.
+  - Ensure CTA buttons still read well.
+
+==================================================
+PART 2 – CONNECT HOME TO EXISTING APP NAVIGATION
+==================================================
+
+1) Header / Top Navigation
+
+- On the Home page, add a simple top nav bar with:
+  - Logo / IWRITE wordmark (text is fine).
+  - Links:
+    - “Product” → scroll to Features section.
+    - “Pricing” → scroll to pricing part or navigate to `/settings#/plans` or `/plans` (whatever exists).
+    - “Login” / “Open Workspace” → `/dashboard`.
+  - Language switcher (re-use existing language toggle component if available).
+
+2) Footer Integration
+
+- Ensure the existing global footer:
+  - Appears on the Home page as well.
+  - Shows company info, legal links, and “Developed by Crew Art · Powered by MH Trading GmbH”.
+- Check that:
+  - Footer links (Imprint, Privacy, Terms, Payment) also work correctly from the Home page.
+
+==================================================
+PART 3 – PRICING / PLANS UI TOUCH-UP (FRONTEND ONLY)
+
+We already have plans logic (FREE vs PRO) and admin control. Now we just need UI consistency.
+
+1) Ensure there is a visible way from the Home page to view pricing:
+   - Either:
+     - A pricing section on the Home page (cards for FREE vs PRO).
+     - Or a clear link / button to an existing Plans page (`/plans`).
+
+2) Pricing section (if implemented on Home page):
+
+   - Show at least:
+     - FREE plan (limited daily AI generations)
+     - PRO plan (14.99 €/month) and optionally yearly.
+   - Emphasize:
+     - FREE has daily limits.
+     - PRO has unlimited AI usage and priority support.
+   - Buttons:
+     - FREE: “Start for free” → `/dashboard` or login.
+     - PRO: “Upgrade to PRO” → existing upgrade flow (same as in Settings).
+
+3) Do NOT implement new billing logic; reuse existing upgrade endpoints and UI states.
+
+==================================================
+PART 4 – UI / CONTENT QUALITY PASS ON EXISTING PAGES
+
+After adding the Home page, do a quick **UI/content pass** across these pages:
+
+- Dashboard
+- AI Writer
+- Songwriter
+- Documents
+- File Uploads
+- Templates
+- Style Profiles
+- Search
+- Topics
+- Archive
+- Settings
+- Admin
+- Legal pages (Imprint, Privacy, Terms, Payment)
+
+For each page:
+
+1) Check headings and empty-state messages:
+   - Replace any placeholders (“Lorem Ipsum”, “No data yet” with no guidance) with clear, professional text.
+   - For example:
+     - “No documents yet. Create your first document with the AI Writer.”
+   - Provide EN/DE/AR translations where appropriate (reuse current i18n approach).
+
+2) Verify navigation:
+   - All sidebar links go to the correct pages (no 404).
+   - Footer links open the right legal pages.
+   - “Quick Actions” on Dashboard navigate correctly (Create document, Upload files, Manage templates).
+
+3) Visual consistency:
+   - Use consistent heading sizes and spacing across pages (match design system).
+   - Avoid huge empty gaps or misaligned cards.
+   - Ensure dark theme colors match the rest of the app.
+
+Do NOT introduce new features; just polish wording, alignment, and UX.
+
+==================================================
+PART 5 – VERIFICATION (UI & NAVIGATION ONLY)
+
+After implementing the Home page and polishing UI:
+
+1) Run:
+
+   ```bash
+   npm run build

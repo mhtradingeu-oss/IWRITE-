@@ -374,7 +374,7 @@ function TemplatePreview({ template, language }: PreviewProps) {
                 Section Heading
               </h3>
               <p className="text-xs" style={{ color: "#6b7280" }}>
-                Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+                {t.sampleContent || "Professional sample content demonstrating template styling and formatting."}
               </p>
             </div>
           </div>
