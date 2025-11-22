@@ -138,8 +138,8 @@ export function AppSidebar() {
             <FileText className="h-5 w-5 text-primary-foreground" />
           </div>
           <div className="flex flex-col">
-            <span className="font-semibold text-sm">HAIROTICMEN</span>
-            <span className="text-xs text-muted-foreground">Writer</span>
+            <span className="font-semibold text-sm">IWRITE</span>
+            <span className="text-xs text-muted-foreground">AI Workspace</span>
           </div>
         </div>
       </SidebarHeader>

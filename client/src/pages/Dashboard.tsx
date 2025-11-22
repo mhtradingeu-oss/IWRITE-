@@ -8,8 +8,8 @@ import { useLanguage } from "@/components/LanguageProvider";
 
 const translations = {
   en: {
-    welcome: "Welcome to HAIROTICMEN Writer",
-    subtitle: "Your AI-powered document workspace",
+    welcome: "Welcome to IWRITE",
+    subtitle: "Overview of your projects, documents, and recent activity",
     documents: "Documents",
     uploads: "Uploads",
     templates: "Templates",
@@ -26,8 +26,8 @@ const translations = {
     noActivity: "No recent activity yet. Start creating documents!",
   },
   ar: {
-    welcome: "مرحباً بك في HAIROTICMEN Writer",
-    subtitle: "مساحة العمل الخاصة بك للكتابة بالذكاء الاصطناعي",
+    welcome: "مرحباً بك في IWRITE",
+    subtitle: "نظرة عامة على مشاريعك والمستندات والنشاط الأخير",
     documents: "المستندات",
     uploads: "الملفات المرفوعة",
     templates: "القوالب",
@@ -44,8 +44,8 @@ const translations = {
     noActivity: "لا يوجد نشاط حديث بعد. ابدأ في إنشاء المستندات!",
   },
   de: {
-    welcome: "Willkommen bei HAIROTICMEN Writer",
-    subtitle: "Ihr KI-gestützter Dokumentenarbeitsbereich",
+    welcome: "Willkommen bei IWRITE",
+    subtitle: "Übersicht über Ihre Projekte, Dokumente und aktuelle Aktivitäten",
     documents: "Dokumente",
     uploads: "Uploads",
     templates: "Vorlagen",

@@ -1,4 +1,4 @@
-# HAIROTICMEN Writer - Design Guidelines
+# IWRITE - Design Guidelines
 
 ## Design Approach
 
