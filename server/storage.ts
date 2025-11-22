@@ -21,6 +21,8 @@ import {
   type InsertTopicPack,
   type Entity,
   type InsertEntity,
+  type SongwriterFeedback,
+  type InsertSongwriterFeedback,
   documents,
   templates,
   styleProfiles,
@@ -32,6 +34,7 @@ import {
   documentTopics,
   topicPacks,
   entities,
+  songwriterFeedback,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { neon } from "@neondatabase/serverless";
@@ -113,6 +116,10 @@ export interface IStorage {
   getEntitiesByTopic(topicId: string, limit?: number): Promise<Entity[]>;
   createEntity(entity: InsertEntity): Promise<Entity>;
   deleteEntity(id: string): Promise<boolean>;
+
+  // Songwriter Feedback
+  getSongwriterFeedback(styleProfileId: string, limit?: number): Promise<SongwriterFeedback[]>;
+  createSongwriterFeedback(feedback: InsertSongwriterFeedback): Promise<SongwriterFeedback>;
 }
 
 export class MemStorage implements IStorage {
@@ -123,6 +130,7 @@ export class MemStorage implements IStorage {
   private documentVersions: Map<string, DocumentVersion>;
   private qaCheckResults: Map<string, QACheckResult>;
   private fileBuffers: Map<string, { buffer: Buffer; mimeType: string }>;
+  private songwriterFeedbackList: SongwriterFeedback[];
 
   constructor() {
     this.documents = new Map();
@@ -132,6 +140,7 @@ export class MemStorage implements IStorage {
     this.documentVersions = new Map();
     this.qaCheckResults = new Map();
     this.fileBuffers = new Map();
+    this.songwriterFeedbackList = [];
   }
 
   // File buffer storage for in-memory file serving
