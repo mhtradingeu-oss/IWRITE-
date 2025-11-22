@@ -8,6 +8,7 @@ import { fromZodError } from "zod-validation-error";
 import { exportToMarkdown, exportToDOCX, exportToPDF } from "./export";
 import { registerAuthRoutes } from "./authRoutes";
 import { requireAuth } from "./index";
+import { checkDailyLimit } from "./limitMiddleware";
 
 // Initialize Google Cloud Storage for file uploads (only in production)
 let bucket: any = null;
@@ -109,7 +110,7 @@ export async function registerRoutes(app: Express) {
     }
   });
 
-  app.post("/api/documents/generate", async (req: Request, res: Response) => {
+  app.post("/api/documents/generate", requireAuth, checkDailyLimit, async (req: Request, res: Response) => {
     try {
       const { documentType, language, prompt, templateId, styleProfileId } = req.body;
 
@@ -197,7 +198,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Document rewriting
-  app.post("/api/documents/:id/rewrite", async (req: Request, res: Response) => {
+  app.post("/api/documents/:id/rewrite", requireAuth, checkDailyLimit, async (req: Request, res: Response) => {
     try {
       const document = await storage.getDocument(req.params.id);
       if (!document) {
@@ -237,7 +238,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // Document translation
-  app.post("/api/documents/:id/translate", async (req: Request, res: Response) => {
+  app.post("/api/documents/:id/translate", requireAuth, checkDailyLimit, async (req: Request, res: Response) => {
     try {
       const document = await storage.getDocument(req.params.id);
       if (!document) {
@@ -279,7 +280,7 @@ export async function registerRoutes(app: Express) {
   });
 
   // QA Checks
-  app.post("/api/documents/:id/qa-check", async (req: Request, res: Response) => {
+  app.post("/api/documents/:id/qa-check", requireAuth, checkDailyLimit, async (req: Request, res: Response) => {
     try {
       const document = await storage.getDocument(req.params.id);
       if (!document) {
