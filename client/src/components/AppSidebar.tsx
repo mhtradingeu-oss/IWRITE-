@@ -201,9 +201,11 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="p-4 border-t border-sidebar-border">
-        <Button variant="ghost" size="sm" className="w-full justify-start" data-testid="button-settings">
-          <Settings className="h-4 w-4" />
-          <span>{t.settings}</span>
+        <Button variant="ghost" size="sm" className="w-full justify-start" asChild data-testid="button-settings">
+          <Link href="/settings">
+            <Settings className="h-4 w-4" />
+            <span>{t.settings}</span>
+          </Link>
         </Button>
       </SidebarFooter>
     </Sidebar>

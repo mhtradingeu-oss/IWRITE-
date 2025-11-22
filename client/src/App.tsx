@@ -23,6 +23,7 @@ import TopicSearch from "@/pages/TopicSearch";
 import AIWriter from "@/pages/AIWriter";
 import Songwriter from "@/pages/Songwriter";
 import Plans from "@/pages/Plans";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/topics/:id" component={TopicPack} />
       <Route path="/search" component={TopicSearch} />
       <Route path="/plans" component={Plans} />
+      <Route path="/settings" component={Settings} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -68,7 +70,7 @@ function AppContent() {
   );
 }
 
-function App() {
+function AppLayout() {
   const { data: user, isLoading } = useQuery({
     queryKey: ["/auth/me"],
     queryFn: async () => {
@@ -102,6 +104,14 @@ function App() {
         </LanguageProvider>
       </ThemeProvider>
     </TooltipProvider>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppLayout />
+    </QueryClientProvider>
   );
 }
 
