@@ -1,0 +1,58 @@
+You are working on the IWRITE project.
+
+PHASE 1 GOAL:
+Do a **safe audit & cleanup** of the codebase so that:
+- Routing is consistent (no random 404s on valid pages).
+- Duplicate / dead pages and components are identified and removed or clearly marked.
+- No business logic (auth/plans/admin/billing) is broken.
+
+⚠️ DO NOT:
+- Change API routes, DB schema, or environment variables.
+- Change auth logic (login, JWT, cookies).
+- Edit admin/plans/billing logic beyond minor bug fixes.
+- Move QueryClientProvider.
+
+You MAY:
+- Reorganize client-side routes so each important page has exactly one definition.
+- Remove clearly unused components/pages that are never imported anywhere.
+- Fix imports, exports, and type errors that affect the UI.
+
+TASKS:
+
+1) ROUTING SURVEY
+   - Open and analyze:
+     - client/src/App.tsx
+     - Any router config file (router.tsx etc.).
+   - Build a list (internally) of all current routes and their components.
+   - Ensure workspace routes exist for:
+     - /dashboard, /ai-writer, /songwriter, /documents, /file-uploads,
+       /templates, /style-profiles, /search, /topics, /archive, /settings, /admin
+     - legal routes: /legal/imprint, /legal/privacy, /legal/terms, /legal/payment
+   - Ensure there is a single NotFound/404 route used as catch-all.
+
+2) DEAD CODE & DUPLICATES
+   - Search for:
+     - Pages/components never imported anywhere.
+     - Old versions of the same page (e.g. OldDashboard.tsx).
+   - For each obvious duplicate:
+     - Keep the one that is actually used.
+     - Delete the unused one OR mark it clearly as deprecated if you are not fully sure.
+   - Keep changes minimal and safe.
+
+3) LAYOUT CONSISTENCY
+   - Make sure workspace pages use a common layout (sidebar + content + footer).
+   - Public pages (Home, login) must NOT show the sidebar.
+
+4) BUILD + VERIFY
+   - Run `npm run build` and fix any UI-level errors caused by the cleanup.
+   - Start dev server and check quickly:
+     - /dashboard
+     - /settings
+     - /admin (for admin user)
+     - legal pages
+   - Confirm there are no new 404s for valid routes.
+
+In your final summary, list:
+- Files removed or renamed.
+- Routing fixes.
+- Any potential TODOs (things you were unsure about and left marked).
