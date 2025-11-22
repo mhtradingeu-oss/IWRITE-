@@ -1,5 +1,6 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -31,6 +32,32 @@ import Terms from "@/pages/legal/Terms";
 import PaymentPolicy from "@/pages/legal/PaymentPolicy";
 import NotFound from "@/pages/not-found";
 
+function RootRedirect() {
+  const [, navigate] = useLocation();
+  const { data: user } = useQuery({
+    queryKey: ["/auth/me"],
+    queryFn: async () => {
+      const response = await fetch("/auth/me", { credentials: "include" });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.user;
+    },
+  });
+
+  useEffect(() => {
+    if (user) {
+      // Auto-redirect based on role
+      if (user.role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
+    }
+  }, [user, navigate]);
+
+  return null;
+}
+
 function Router() {
   return (
     <Switch>
@@ -54,7 +81,7 @@ function Router() {
       <Route path="/legal/privacy" component={Privacy} />
       <Route path="/legal/terms" component={Terms} />
       <Route path="/legal/payment" component={PaymentPolicy} />
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={RootRedirect} />
       <Route component={NotFound} />
     </Switch>
   );

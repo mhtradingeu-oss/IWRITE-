@@ -54,6 +54,11 @@ const plans = [
   },
 ];
 
+const adminNotice = {
+  title: "Administrator Account",
+  description: "If your account has been granted admin access, you will have additional management capabilities. Admin accounts are not a subscription plan—they are special system accounts used to manage users, maintain the application, and oversee system settings. Admin access is assigned by the system owner.",
+};
+
 export default function Plans() {
   const { toast } = useToast();
   const { data: user } = useQuery({
@@ -150,14 +155,25 @@ export default function Plans() {
         ))}
       </div>
 
-      <div className="mt-12 p-6 bg-muted rounded-lg">
-        <h3 className="font-semibold mb-2">📝 Current Plan</h3>
-        <p className="text-muted-foreground">
-          You are on the <strong>{user?.plan || "FREE"}</strong> plan
-        </p>
-        <p className="text-sm text-muted-foreground mt-2">
-          ✓ Stripe payment integration is now active. Click "Upgrade Now" to start your premium experience.
-        </p>
+      <div className="mt-12 space-y-6">
+        <div className="p-6 bg-muted rounded-lg">
+          <h3 className="font-semibold mb-2">📝 Current Plan</h3>
+          <p className="text-muted-foreground">
+            You are on the <strong>{user?.plan || "FREE"}</strong> plan
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            ✓ Stripe payment integration is ready. Click "Upgrade Now" to start your premium experience.
+          </p>
+        </div>
+
+        {user?.role === "admin" && (
+          <div className="p-6 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <h3 className="font-semibold mb-2 text-blue-900 dark:text-blue-100">🔑 {adminNotice.title}</h3>
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              {adminNotice.description}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
