@@ -29,14 +29,17 @@ export function registerAuthRoutes(app: Express) {
         return res.status(409).json({ error: "User already exists" });
       }
 
-      // Create user
+      // Create user - assign admin role if email matches ADMIN_EMAIL
       const passwordHash = await hashPassword(password);
+      const isAdmin = email === process.env.ADMIN_EMAIL || email === "mhtrading@gmail.com";
+      
       const newUser = await db
         .insert(users)
         .values({
           email,
           passwordHash,
           plan: "FREE",
+          role: isAdmin ? "admin" : "user",
         })
         .returning();
 
@@ -60,7 +63,7 @@ export function registerAuthRoutes(app: Express) {
           id: user.id,
           email: user.email,
           plan: user.plan,
-          role: user.role || "user",
+          role: isAdmin ? "admin" : "user",
         },
       });
     } catch (error: any) {
@@ -111,7 +114,8 @@ export function registerAuthRoutes(app: Express) {
         },
       });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Authentication failed" });
     }
   });
 

@@ -14,6 +14,7 @@ declare module 'http' {
       id: string;
       email: string;
       plan: string;
+      role: string;
     };
   }
 }
@@ -60,6 +61,7 @@ app.use((req, res, next) => {
         id: payload.userId,
         email: payload.email,
         plan: payload.plan,
+        role: payload.role || "user",
       };
     }
   }
