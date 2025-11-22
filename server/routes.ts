@@ -472,6 +472,23 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  app.post("/api/style-profiles/:id/preview", async (req: Request, res: Response) => {
+    try {
+      const profile = await storage.getStyleProfile(req.params.id);
+      if (!profile) {
+        return res.status(404).json({ error: "Style profile not found" });
+      }
+
+      const { generateStylePreview } = await import("./ai");
+      const previewText = await generateStylePreview(profile);
+      
+      res.json({ preview: previewText });
+    } catch (error: any) {
+      console.error("Error generating preview:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // File Uploads
   app.get("/api/uploads", async (req: Request, res: Response) => {
     try {

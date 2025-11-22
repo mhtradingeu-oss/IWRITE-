@@ -162,6 +162,44 @@ export async function translateDocument(params: {
   return response.choices[0]?.message?.content || "";
 }
 
+export async function generateStylePreview(styleProfile: any): Promise<string> {
+  let styleDescription = `Write a short sample paragraph demonstrating this writing style:
+- Use Case: ${styleProfile.useCase || "General"}
+- Tone: ${styleProfile.tone}
+- Voice: ${styleProfile.voice}
+- Formality Level: ${styleProfile.formalityLevel || "professional"}`;
+
+  if (styleProfile.targetAudience) {
+    styleDescription += `\n- Target Audience: ${styleProfile.targetAudience}`;
+  }
+  if (styleProfile.purpose) {
+    styleDescription += `\n- Purpose: ${styleProfile.purpose}`;
+  }
+  if (styleProfile.sentenceLengthPreference) {
+    styleDescription += `\n- Sentence Length: ${styleProfile.sentenceLengthPreference}`;
+  }
+  if (styleProfile.structurePreference) {
+    styleDescription += `\n- Structure: ${styleProfile.structurePreference}`;
+  }
+  if (styleProfile.preferredPhrases?.length > 0) {
+    styleDescription += `\n- Preferred Phrases: ${styleProfile.preferredPhrases.join(", ")}`;
+  }
+  if (styleProfile.guidelines) {
+    styleDescription += `\n- Guidelines: ${styleProfile.guidelines}`;
+  }
+
+  const response = await openai.chat.completions.create({
+    model: "gpt-5",
+    messages: [
+      { role: "system", content: "You are a writing expert. Generate a single sample paragraph that demonstrates the requested writing style. Keep it brief (2-3 sentences)." },
+      { role: "user", content: styleDescription },
+    ],
+    max_completion_tokens: 256,
+  });
+
+  return response.choices[0]?.message?.content || "";
+}
+
 export async function performQACheck(params: {
   content: string;
   checkType: "medical-claims" | "disclaimer" | "number-consistency" | "product-code-cnpn";
