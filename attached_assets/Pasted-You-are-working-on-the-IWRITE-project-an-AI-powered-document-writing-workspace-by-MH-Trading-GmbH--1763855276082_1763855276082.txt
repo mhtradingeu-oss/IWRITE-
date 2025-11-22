@@ -1,0 +1,99 @@
+You are working on the IWRITE project, an AI-powered document-writing workspace by MH Trading GmbH.
+
+This is the FINAL HARDENING PASS before production.
+
+Your goal in THIS TURN is to do a **deep, end-to-end audit and polish of the ENTIRE APP**, across:
+
+- Routing & navigation
+- Header / sidebar / footer
+- Landing & login flows
+- Users, roles, and plans (FREE / PRO / Admin)
+- Workspace pages (Dashboard, AI Writer, Songwriter, Documents, etc.)
+- Admin Console
+- AI tools (prompting, UX, error handling)
+- Billing / Stripe UI
+- Legal pages & company branding
+- Production sanity: build, health, basic robustness
+
+You should treat this as a “release candidate polish”:
+- Fix things that are clearly wrong, incomplete, duplicated, or confusing.
+- Improve UX/text/layout to be professional and coherent.
+- DO NOT redesign core architecture or business logic.
+
+==================================================
+GLOBAL CONSTRAINTS – DO NOT BREAK THESE
+==================================================
+
+You MUST NOT:
+
+1. Change backend contracts in a breaking way:
+   - No renaming or removing existing API routes.
+   - No breaking changes to request/response shapes.
+   - No DB schema changes that require migrations (unless absolutely trivial and clearly safe).
+
+2. Do NOT change:
+   - Auth logic (JWT cookie, login endpoints) except for UI/redirect improvements.
+   - Plan names (FREE, PRO_*, etc.).
+   - Role names (admin vs user).
+   - Environment variable names (FREE_DAILY_LIMIT, ADMIN_EMAIL, STRIPE_*, DATABASE_URL, etc.).
+
+3. Do NOT:
+   - Move or duplicate QueryClientProvider.
+   - Remove security middlewares.
+
+You MAY:
+
+- Add/adjust React components, routes, and layouts.
+- Improve UX (texts, labels, layout, loading states).
+- Add small non-breaking admin endpoints if really needed, using existing patterns.
+- Use the existing AI integration to build better prompts/UI on the frontend.
+- Remove obviously unused or dead frontend components.
+
+==================================================
+PART 1 – GLOBAL ROUTING & LAYOUT (SHELL OF THE APP)
+==================================================
+
+1) Client Routing:
+
+- Open:
+  - `client/src/App.tsx`
+  - Any shared router config (e.g., router.tsx)
+  - Main layouts (workspace layout, public layout).
+
+- Verify there is **one clear route** for each:
+
+  PUBLIC:
+  - `/`              → Home / Landing page
+  - `/login` (or equivalent) → Login/Auth page
+  - `/legal/imprint`
+  - `/legal/privacy`
+  - `/legal/terms`
+  - `/legal/payment`
+  - Optional: `/upgrade/success`
+
+  WORKSPACE (authenticated):
+  - `/dashboard`
+  - `/ai-writer`
+  - `/songwriter`
+  - `/documents`
+  - `/file-uploads`
+  - `/templates`
+  - `/style-profiles`
+  - `/search`
+  - `/topics`
+  - `/archive`
+  - `/settings`
+  - `/plans` (if separate)
+  - `/admin` (Admin Console)
+
+- Ensure:
+  - Public pages (Home, login, legal) DO NOT show the workspace sidebar.
+  - Workspace pages use a **common layout**: header (if any), sidebar, main content, global footer.
+  - There is a single NotFound route (`*`) used as a catch-all, not shadowing valid routes.
+
+2) Layout Consistency:
+
+- Make sure:
+  - Sidebar + footer appear consistently on all workspace pages.
+  - Footer also appears on the Home page (if desired) but with correct spacing, not huge white gaps.
+  - All pages use the same design system (colors, font, spa
