@@ -1,0 +1,195 @@
+You are an expert full-stack TypeScript + React developer working inside the HAIROTICMEN Writer Replit project.
+
+🎯 GOAL
+Add a new dedicated section/page called **"AI Writer"** that becomes the main hub for creating and refining documents with AI, using:
+- a powerful prompt box,
+- task presets (buttons),
+- document configuration controls (type, template, language, tone, length),
+- source selection from uploaded documents/topics,
+- built-in QA and template integration.
+
+This must feel like a professional, focused writing cockpit, not a raw playground.
+
+🧱 ARCHITECTURE & DESIGN CONSTRAINTS
+
+- Reuse the existing design system of the app (Fluent-inspired, productivity-focused).
+- Follow the layout and typography guidelines:
+  - Sidebar ~280px for navigation.
+  - Main workspace max-w-7xl, flex layout.
+  - Clean white editor area, light gray background, subtle shadows.
+- Full RTL/LTR support:
+  - For Arabic, mirror layout (sidebar on the right, text aligned right).
+  - Icons/chevrons adapt to reading direction.
+- Do NOT introduce a totally new UI library. Reuse existing components (buttons, inputs, panels, tabs) where possible.
+
+📍 WHERE TO PLACE IT
+
+- Add a new main navigation item in the sidebar: **AI Writer**.
+- Route to a new page/view (e.g. `/ai-writer`).
+
+🖥️ AI WRITER PAGE – MAIN LAYOUT
+
+Use a 3-column responsive layout:
+
+1) **Left Panel – Prompt & Task Controls (width ~30%)**
+   - Title: "AI Writer"
+   - Main elements:
+     - **Prompt Textarea**:
+       - Multi-line, auto-growing, with character count.
+       - Placeholder: “اكتب ما تريد أن يفعله الكاتب الذكي… / Describe exactly what you want the AI Writer to do…”
+     - **Task Presets (Chips/Buttons)**:
+       Row or grid of presets like:
+       - "New Document from Sources"
+       - "Rewrite & Improve"
+       - "Summarize"
+       - "Expand / Add Detail"
+       - "Translate"
+       - "Fix Style & Tone"
+       - "Generate Variants"
+       Clicking a preset should:
+       - Pre-fill or modify the prompt with a structured instruction.
+     - **Document Type Selector**:
+       - Dropdown with options like:
+         - Catalog Page
+         - Product Sheet
+         - Distributor Offer
+         - Contract / Agreement
+         - SOP / Internal Guide
+         - Email / Letter
+         - Marketing Page
+       - This value must be sent to the AI backend as metadata.
+     - **Quality Options**:
+       - Target length: Short / Medium / Long.
+       - Formality level: Very formal / Business / Friendly-but-professional.
+       - Language: AR / EN / DE (toggle buttons).
+     - **Action Buttons**:
+       - Primary: "Generate Draft"
+       - Secondary: "Improve Current Draft"
+
+2) **Center Panel – Live Document Editor (width ~45–50%)**
+   - Full-height rich text editor area.
+   - When AI generates content, it appears here.
+   - Above the editor:
+     - Document title input.
+     - Toggle: “Show structure” (outline of headings).
+   - Below toolbar:
+     - Simple formatting controls (reuse existing editor toolbar).
+   - Important behaviors:
+     - When user manually edits text, changes should not be lost on next AI run.
+     - Provide buttons in the editor toolbar for:
+       - Improve selection
+       - Shorten selection
+       - Expand selection
+       (These should open a small popup/panel to confirm the action, then call the AI backend.)
+
+3) **Right Panel – Sources, Templates & QA (width ~25–30%)**
+
+   **Sources Section:**
+   - Title: "Sources"
+   - Tabs:
+     - "Documents" (list of uploaded docs)
+     - "Topics" (list of topics from Topic Intelligence)
+   - Under "Documents":
+     - Search box.
+     - Scrollable list of documents with:
+       - name
+       - language
+       - tags (e.g. "Product", "Stand", "Loyalty", "Master Guide")
+       - checkbox to select as source.
+   - Under "Topics":
+     - List of topics with:
+       - name
+       - keywords
+       - number of passages/docs
+       - checkbox to include topic as source.
+   - A clear info text:
+     - "Selected sources are used to ground AI generations. The AI should prefer facts from these sources."
+
+   **Template Section:**
+   - Dropdown or card selector:
+     - Choose a template (e.g. "HAIROTICMEN Catalog", "Stand Master Guide", "Loyalty Program Guide", "Distributor Offer").
+   - Option: “Apply template styling on export only” vs “Show template structure in editor”.
+
+   **QA Section:**
+   - Button: "Run QA Checks"
+   - When clicked:
+     - Call existing QA backend to analyze the current draft.
+     - Show a list of issues (maybe in a collapsible panel or bottom drawer):
+       - Type: Medical Claim / Disclaimer / Number Consistency / Product Code.
+       - Severity color (green/yellow/red).
+       - Suggested fix text.
+     - Allow user to click an issue and:
+       - Jump to the position in the editor.
+       - Optionally insert the suggested fix into the prompt for an "auto-fix" run.
+
+📡 BACKEND INTEGRATION (HIGH LEVEL)
+
+- Create/extend an endpoint for **AI Writer runs**, e.g.:
+  - `POST /api/ai-writer/run`
+  - Payload should include:
+    - `prompt` (the text from the prompt box)
+    - `taskType` (preset)
+    - `documentType`
+    - `language`
+    - `tone`
+    - `targetLength`
+    - `templateId`
+    - `sourceDocumentIds[]`
+    - `topicIds[]`
+    - Optional: the current draft text (for "improve" or "rewrite" actions).
+- The endpoint responds with:
+  - `content` (generated text)
+  - optional `metadata` (sections, headings, citations, etc.)
+
+- For editor selection tools (improve, shorten, expand):
+  - Consider a separate endpoint or reuse the same with a `mode` field and `selectedText`.
+
+- For QA:
+  - Reuse existing QA services; just wire a “Run QA” button from AI Writer.
+
+📲 UX REQUIREMENTS
+
+- Clear loading states:
+  - Disable buttons during AI call.
+  - Show skeleton or spinner over the editor while generating.
+- Error handling:
+  - Show a friendly error toast if AI fails.
+  - Do NOT wipe the current draft on error.
+- History:
+  - Simple "AI Runs History" sidebar or dropdown (even minimal):
+    - Keep last 3–5 generations.
+    - Allow user to restore a previous version.
+
+🌍 RTL/LTR
+
+- The entire AI Writer page must:
+  - Switch alignment and layout based on current language (or global app language).
+  - For Arabic:
+    - Left and right panels mirrored.
+    - Text aligned right in labels, inputs, and editor content.
+  - For English/German: standard LTR.
+
+🧪 IMPLEMENTATION STRATEGY
+
+1. Scan the existing codebase for:
+   - The main layout shell and sidebar navigation.
+   - The existing document editor component.
+   - Template / QA / Topic Intelligence modules and APIs.
+2. Add the new AI Writer route and sidebar link.
+3. Build the 3-column layout for the AI Writer page.
+4. Wire up:
+   - Prompt + task presets → AI writer backend endpoint.
+   - Editor to display/update AI results.
+   - Sources selector → IDs in request payload.
+   - Template dropdown → templateId in payload.
+   - QA button → existing QA service.
+5. Ensure RTL/LTR is handled cleanly (prefer using existing i18n/layout toggles).
+6. Test:
+   - Creating a new document from multiple sources.
+   - Improving an existing draft.
+   - Running QA and manually fixing issues.
+7. Summarize:
+   - Which files you added/modified.
+   - How to open and use the AI Writer in the running app.
+
+Always keep the interface clean, professional, and focused on producing **official, high-quality HAIROTICMEN documents**.
