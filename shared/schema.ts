@@ -15,6 +15,8 @@ export const users = pgTable("users", {
   plan: text("plan").notNull().default("FREE"),
   planStartedAt: timestamp("plan_started_at").notNull().defaultNow(),
   planExpiresAt: timestamp("plan_expires_at"),
+  dailyUsageCount: integer("daily_usage_count").notNull().default(0),
+  dailyUsageDate: text("daily_usage_date"), // YYYY-MM-DD format
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
