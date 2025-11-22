@@ -1,0 +1,155 @@
+You are working on the IWRITE project.
+
+Current status:
+
+- Phase 1 (Auth + Plans + Daily Limits + Seeding + Docs) is complete and stable.
+- Login works (JWT cookies).
+- FREE and PRO users exist (test@example.com, mhtrading@gmail.com).
+- The main workspace (Dashboard, AI Writer, Songwriter, Templates, Topics, etc.) works correctly.
+- However, when I click on the **Settings** entry in the sidebar, nothing happens and no Account / Profile UI is visible.
+
+🎯 GOAL
+
+Carefully implement and wire a working **Settings / Account** page, using the existing project structure and naming, WITHOUT breaking any existing features or duplicating routes.
+
+The Settings area should:
+
+- Open when the user clicks "Settings" in the sidebar.
+- Show the current user’s basic info (email, name, plan).
+- Allow editing basic profile fields (if possible).
+- Show plan & daily usage info (FREE vs PRO, limit usage).
+- Integrate cleanly with existing auth and React Query.
+
+DO THIS CAREFULLY:
+
+- Reuse existing names, components, hooks, and patterns where possible.
+- Do NOT rename or remove existing routes, components, or env vars.
+- Do NOT break any part of the current app shell or navigation.
+
+---
+
+🧩 PART 1 — DISCOVER THE EXISTING SETTINGS HOOK POINTS
+
+1) Scan the client code:
+
+   - Look for:
+     - Sidebar configuration (where "Settings" menu item is defined).
+     - Any existing `Settings` or `Account` page component (e.g. `SettingsPage.tsx`, `AccountPage.tsx`, etc.).
+     - Existing routes using React Router (or whatever router is used).
+
+2) Determine:
+
+   - What route (path) is supposed to be used for Settings (e.g. `/settings`, `/account`, etc.).
+   - Whether there is already a component for that route, or if it's missing.
+
+Do NOT create new route names if there is already a planned one. Reuse the intended path and names.
+
+---
+
+🧩 PART 2 — WIRE THE SETTINGS ROUTE IN THE ROUTER
+
+1) If a Settings route already exists:
+
+   - Make sure the "Settings" sidebar item actually navigates to it:
+     - It should use the same path as defined in the router.
+     - Clicking Settings should update the URL and render the Settings component.
+
+2) If a Settings route does NOT exist:
+
+   - Add a single route (e.g. `/settings`) in the main router configuration.
+   - Connect the existing "Settings" sidebar item to this new route.
+
+3) Ensure:
+
+   - The route is **protected by auth** (only accessible when logged in).
+   - The route renders inside the main app layout (same layout as Dashboard).
+
+---
+
+🧩 PART 3 — IMPLEMENT THE SETTINGS / ACCOUNT PAGE
+
+If there is no proper page yet, implement a **single Account Settings page** with 2–3 clear sections.
+
+Use the same design language as the rest of the app (dark Fluent-like, cards, etc.), and reuse existing UI components if available.
+
+The page should:
+
+1) Fetch current user data:
+
+   - Use React Query (`useQuery`) to call the existing `/auth/me` or `/api/account/me`-type endpoint (whichever already exists).
+   - From that response, display:
+     - Email (read-only)
+     - Plan (FREE or PRO_*)
+     - If available: full_name, preferred_language, daily usage counters.
+
+2) Basic Profile Section:
+
+   - Show:
+     - Full Name (editable if supported in the backend).
+     - Email (read-only).
+     - Preferred Language (if available from the backend).
+   - If there is already an endpoint like `PUT /api/account/profile`, reuse it.
+   - If not, either:
+     - Implement it minimally on the server (reusing `db` and auth middleware), OR
+     - Make the profile section read-only for now and clearly mark fields as not editable.
+
+3) Plan & Usage Section:
+
+   - Show:
+     - Current Plan (FREE vs PRO_MONTHLY/PRO_YEARLY/etc).
+     - For FREE users:
+       - “Daily usage: X / FREE_DAILY_LIMIT today”
+       - Short note: “Upgrade to PRO for unlimited usage” (text only; no full billing integration needed).
+     - For PRO users:
+       - “Plan: PRO (Full access)” or similar.
+
+   - Use the fields already present in the user table (`dailyUsageCount`, `dailyUsageDate`, plan fields).
+   - Use `FREE_DAILY_LIMIT` from the config (if exposed) or hard-code the value from config if needed.
+
+4) Security Section (Optional, if endpoints already exist):
+
+   - If there is a `PUT /api/account/password` endpoint:
+     - Add a simple form for changing password (current, new, confirm).
+   - If not implemented yet:
+     - It is okay to leave this section as a “coming soon” area or skip it entirely.
+
+5) Layout:
+
+   - Use a clear structure, for example:
+     - Card 1: Profile
+     - Card 2: Plan & Usage
+     - (Optional) Card 3: Security
+   - Respect RTL/LTR layouts depending on current language.
+
+---
+
+🧩 PART 4 — INTEGRATION & NO-DAMAGE GUARANTEES
+
+While making changes:
+
+1) Do NOT:
+
+   - Rename existing components or routes.
+   - Remove or change behavior of Dashboard, AI Writer, Songwriter, Templates, Style Profiles, Topics, or Archive.
+   - Modify the auth flow (login redirect, cookies, etc.).
+
+2) Reuse:
+
+   - Existing layout shell and shared components.
+   - Existing hooks for API calls if they already exist.
+
+If you need to create new files, keep them under logical locations like:
+
+- `client/src/pages/Settings.tsx`
+- `client/src/components/settings/AccountSection.tsx` etc.
+
+---
+
+🧩 PART 5 — VERIFICATION (VERY IMPORTANT)
+
+After wiring the Settings page:
+
+1) Run:
+
+   ```bash
+   npm run build
