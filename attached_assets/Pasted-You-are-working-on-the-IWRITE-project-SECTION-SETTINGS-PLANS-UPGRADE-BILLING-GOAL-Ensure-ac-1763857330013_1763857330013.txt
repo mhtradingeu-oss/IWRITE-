@@ -1,0 +1,73 @@
+You are working on the IWRITE project.
+
+SECTION: SETTINGS + PLANS/UPGRADE + BILLING
+
+GOAL:
+Ensure account settings, subscription plans, and billing UI are complete:
+- Users can see their account info, plan, usage.
+- FREE vs PRO clearly explained.
+- Upgrade flow works or shows graceful “Stripe not configured”.
+
+TASKS:
+
+1) SETTINGS PAGE
+- Check Settings/Account page.
+- Ensure sections:
+  - Account Info:
+    - Email
+    - Created at
+    - User ID (optional)
+  - Subscription & Billing:
+    - Current plan name
+    - Status (FREE / PRO)
+    - Feature list for current plan.
+    - Clear “Upgrade to PRO” button if FREE.
+  - Usage:
+    - Daily AI usage: used / limit (if FREE).
+    - For PRO: show “unlimited” label.
+  - Account Management:
+    - Logout button working.
+
+2) PLANS / PRICING
+- Plans page or section under Settings:
+  - Show:
+    - FREE:
+      - Daily AI generation limit.
+      - Locked features (Songwriter, Templates …).
+    - PRO (14.99€/month, optionally yearly):
+      - Unlimited AI generations.
+      - All tools enabled.
+  - Buttons:
+    - FREE: “Start for free” (if not logged in) or “You’re on this plan”.
+    - PRO: “Upgrade to PRO”.
+
+3) UPGRADE FLOW
+- When user clicks Upgrade:
+  - If Stripe is configured:
+    - Call existing billing endpoint to create checkout session.
+    - Redirect user to Stripe or show error if it fails.
+  - If Stripe is NOT configured:
+    - Show friendly banner:
+      - “Stripe payment is not configured yet. For demo access, contact the administrator.”
+    - Do NOT show cryptic errors or crash.
+
+4) POST-UPGRADE STATE
+- After returning from Stripe or admin manually sets plan to PRO:
+  - `/auth/me` should return updated plan.
+  - Settings & Plans UI must:
+    - Show PRO plan.
+    - Hide/disable upgrade button.
+    - Show PRO-only features as enabled.
+
+5) VERIFY
+- As FREE:
+  - See FREE plan details and daily usage.
+  - See Upgrade button.
+- As PRO:
+  - PRO badge and no upgrade button.
+- As Admin:
+  - Same as PRO for settings; admin management happens in Admin Console.
+
+Summarize:
+- Settings/Plans/Billing UI and flows.
+- Behavior when Stripe is configured vs not.
