@@ -76,9 +76,22 @@ export default function Login() {
 
       if (!response.ok) {
         const error = await response.json();
+        let errorMessage = error.error || "Authentication failed";
+        
+        // Provide more helpful error messages
+        if (response.status === 401) {
+          errorMessage = isRegister 
+            ? "Email already registered or invalid credentials"
+            : "Invalid email or password";
+        } else if (response.status === 400) {
+          errorMessage = isRegister
+            ? "Password does not meet requirements (min 8 chars, 1 uppercase, 1 number)"
+            : error.error || "Invalid input";
+        }
+        
         toast({
-          title: "Error",
-          description: error.error || "Authentication failed",
+          title: "Authentication Error",
+          description: errorMessage,
           variant: "destructive",
         });
         setIsLoading(false);
@@ -90,10 +103,11 @@ export default function Login() {
 
       toast({
         title: "Success",
-        description: isRegister ? "Account created" : "Logged in",
+        description: isRegister ? "Account created successfully" : "Logged in successfully",
       });
 
-      navigate(redirectPath);
+      // Navigate after a brief delay to show success toast
+      setTimeout(() => navigate(redirectPath), 500);
     } catch (error) {
       toast({
         title: "Error",
@@ -121,30 +135,34 @@ export default function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-4 mb-8">
               <div>
-                <label className="text-sm font-medium">Email</label>
+                <label htmlFor="email" className="text-sm font-medium">Email Address</label>
                 <Input
+                  id="email"
                   type="email"
                   placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isLoading}
+                  required
                   data-testid="input-email"
                 />
               </div>
 
               <div>
-                <label className="text-sm font-medium">Password</label>
+                <label htmlFor="password" className="text-sm font-medium">Password</label>
                 <Input
+                  id="password"
                   type="password"
-                  placeholder={isRegister ? "Min 8 chars, 1 uppercase, 1 number" : "Enter password"}
+                  placeholder={isRegister ? "Min 8 chars, 1 uppercase, 1 number" : "Enter your password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
+                  required
                   data-testid="input-password"
                 />
                 {isRegister && (
                   <p className="text-xs text-muted-foreground mt-1">
-                    Min 8 chars, 1 uppercase, 1 number
+                    Requirements: minimum 8 characters, 1 uppercase letter, 1 number
                   </p>
                 )}
               </div>

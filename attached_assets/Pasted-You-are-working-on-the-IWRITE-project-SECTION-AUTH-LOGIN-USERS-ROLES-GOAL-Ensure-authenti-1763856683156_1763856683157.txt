@@ -1,0 +1,62 @@
+You are working on the IWRITE project.
+
+SECTION: AUTH / LOGIN / USERS / ROLES
+
+GOAL:
+Ensure authentication, login UX, and role/plan-based redirects are correct and robust:
+- Landing → Login
+- Login → correct dashboard per role/plan
+- Guarding workspace routes and admin route
+
+CONSTRAINTS:
+- DO NOT change backend auth endpoints or tokens.
+- DO NOT change DB schema or env vars.
+- Only adjust frontend: login page, redirects, guards, UI messages.
+
+TASKS:
+
+1) LOGIN PAGE
+- Find Login page/component (e.g. `client/src/pages/Login.tsx`).
+- Ensure:
+  - Fields: email + password.
+  - Clear labels and validation messages.
+  - Submit button shows loading state when calling login API.
+  - On error (wrong password, 401) shows user-friendly error.
+
+2) REDIRECT AFTER LOGIN
+- In login submit success handler:
+  - Fetch `/auth/me` if not already done.
+  - Implement helper:
+
+    ```ts
+    function redirectAfterLogin(user) {
+      if (user.role === "admin") navigate("/admin");
+      else if (user.plan && user.plan.startsWith("PRO")) navigate("/dashboard");
+      else navigate("/dashboard"); // FREE / no plan
+    }
+    ```
+
+  - Call this helper after successful login.
+
+3) SESSION BOOTSTRAP
+- On app mount (e.g. in `App.tsx` or auth provider), ensure:
+  - If JWT cookie exists, `/auth/me` is called to restore user.
+  - After user is loaded:
+    - If current route is `/login` or `/` and user is logged in:
+      - Optionally redirect using the same `redirectAfterLogin` logic.
+
+4) ROUTE GUARDS
+- For all workspace routes (dashboard, ai-writer, etc.):
+  - If user is not authenticated:
+    - Redirect to `/login` or show a guard page with “Please log in”.
+- For `/admin`:
+  - If user is not admin:
+    - Show “Access denied – Admin only” and navigate to `/dashboard`.
+
+5) FREE / PRO / ADMIN HELPERS
+- Implement on client:
+
+  ```ts
+  function isFree(plan?: string) { return !plan || plan === "FREE"; }
+  function isPro(plan?: string) { return !!plan && plan.startsWith("PRO"); }
+  function isAdmin(role?: string) { return role === "admin"; }

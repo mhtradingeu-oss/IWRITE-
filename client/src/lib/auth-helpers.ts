@@ -1,10 +1,10 @@
 // Helper functions for plan and role checks
 export function isFree(plan: string | undefined): boolean {
-  return plan === "FREE";
+  return !plan || plan === "FREE";
 }
 
 export function isPro(plan: string | undefined): boolean {
-  return plan?.startsWith("PRO") ?? false;
+  return !!plan && plan.startsWith("PRO");
 }
 
 export function isAdmin(role: string | undefined): boolean {
