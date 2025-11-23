@@ -1,0 +1,103 @@
+You are working on the IWRITE project.
+
+FOCUS OF THIS TURN:
+Deeply audit, fix, and TEST the **entire auth & login experience**:
+
+- Login and (if present) registration
+- Role & plan detection (FREE / PRO / ADMIN)
+- Redirects after login
+- Access guards for workspace and admin routes
+- Upgrade button behavior → subscription/payment page
+
+This is ONLY about auth + routing + plan mapping + upgrade navigation.
+
+==================================================
+CONSTRAINTS (DO NOT BREAK THESE)
+==================================================
+
+You MUST NOT:
+- Change backend auth routes or token structure.
+- Change DB schema or env variable names.
+- Rename plan names (FREE, PRO_MONTHLY, PRO_YEARLY, etc.).
+- Rename role names (“admin”, “user”).
+- Move or duplicate QueryClientProvider.
+
+You MAY:
+- Edit frontend login/register pages.
+- Edit client-side redirects and route guards.
+- Add small helper functions for roles/plans.
+- Improve error messages and loading states.
+- Wire upgrade buttons to the correct existing subscription routes.
+
+==================================================
+KNOWN TEST ACCOUNTS (IMPORTANT)
+==================================================
+
+Use these real accounts for testing:
+
+1) ADMIN / PRO user
+   - Email: mhtrading@gmail.com
+   - Password: test@123
+   - Expected:
+     - role === "admin"
+     - plan is PRO_* (paid)
+     - After login → redirect to `/admin` (Admin Dashboard)
+
+2) FREE user
+   - Email: test@example.com
+   - Password: Test1234
+   - Expected:
+     - role === "user"
+     - plan === "FREE" (or equivalent)
+     - After login → redirect to `/dashboard` (standard user dashboard)
+     - Cannot access `/admin` (should see friendly access denied or redirect)
+
+(If seeding script exists like `npm run seed:users`, you may run it once if needed.)
+
+==================================================
+PART 1 – DEEP SCAN: AUTH & ROUTING STRUCTURE
+==================================================
+
+1) Locate key frontend files:
+   - Login page component (e.g. `client/src/pages/Login.tsx`)
+   - Optional Register page component (if exists)
+   - Global router / App component:
+     - `client/src/App.tsx`
+     - Any route definitions
+   - Any auth context/hook (e.g. `useAuth`, `/auth/me` query wrapper).
+   - Route guard components (if they exist).
+
+2) Identify:
+   - What route is used for login (`/login` or other).
+   - Which page is used for:
+     - `/dashboard`
+     - `/admin`
+     - `/settings`
+     - `/plans` or pricing
+   - How `/auth/me` is consumed on the frontend (for user, plan, role).
+
+3) Summarize internally:
+   - Where redirect happens after login.
+   - How we currently check if a user is admin or free/pro.
+   - Where route guards are implemented.
+
+DO NOT change anything in this step; just read/code-analyze.
+
+==================================================
+PART 2 – IMPLEMENT CLEAR ROLE & PLAN HELPERS
+==================================================
+
+Implement simple helpers in a shared client-side file:
+
+```ts
+function isFree(plan?: string) {
+  return !plan || plan === "FREE";
+}
+
+function isPro(plan?: string) {
+  return !!plan && plan.startsWith("PRO");
+}
+
+function isAdmin(role?: string) {
+  return role === "admin";
+}
