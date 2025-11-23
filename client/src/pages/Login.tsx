@@ -27,11 +27,11 @@ export default function Login() {
       testid: "button-demo-free",
     },
     {
-      label: "Admin / PRO User",
+      label: "Administrator",
       email: "mhtrading@gmail.com",
       password: "test@123",
       icon: Crown,
-      badge: "Full Access + PRO",
+      badge: "System Admin",
       color: "bg-amber-50 dark:bg-amber-950/30",
       testid: "button-demo-admin",
     },
