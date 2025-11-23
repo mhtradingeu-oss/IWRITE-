@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FileText, Upload, Layout, Wand2, TrendingUp, Clock } from "lucide-react";
+import { FileText, Upload, Layout, Wand2, TrendingUp, Clock, Zap, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "wouter";
+import { Badge } from "@/components/ui/badge";
+import { Link, useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLanguage } from "@/components/LanguageProvider";
+import { isFree, isPro } from "@/lib/auth-helpers";
 
 const translations = {
   en: {
@@ -24,6 +26,11 @@ const translations = {
     uploadFiles: "Upload Files",
     manageTemplates: "Manage Templates",
     noActivity: "No recent activity yet. Start creating documents!",
+    yourPlan: "Your Plan",
+    freeRemaining: "remaining today",
+    unlimitedDaily: "Unlimited daily generations",
+    upgradeNow: "Upgrade to PRO",
+    proFeatures: "Unlock Songwriter, unlimited generations, and more",
   },
   ar: {
     welcome: "مرحباً بك في IWRITE",
@@ -42,6 +49,11 @@ const translations = {
     uploadFiles: "رفع الملفات",
     manageTemplates: "إدارة القوالب",
     noActivity: "لا يوجد نشاط حديث بعد. ابدأ في إنشاء المستندات!",
+    yourPlan: "خطتك",
+    freeRemaining: "المتبقية اليوم",
+    unlimitedDaily: "إنشاءات يومية غير محدودة",
+    upgradeNow: "ترقية إلى PRO",
+    proFeatures: "فتح Songwriter والإنشاءات غير المحدودة والمزيد",
   },
   de: {
     welcome: "Willkommen bei IWRITE",
@@ -60,12 +72,28 @@ const translations = {
     uploadFiles: "Dateien hochladen",
     manageTemplates: "Vorlagen verwalten",
     noActivity: "Noch keine aktuelle Aktivität. Beginnen Sie mit der Erstellung von Dokumenten!",
+    yourPlan: "Ihr Plan",
+    freeRemaining: "heute verfügbar",
+    unlimitedDaily: "Unbegrenzte tägliche Generierungen",
+    upgradeNow: "Upgrade zu PRO",
+    proFeatures: "Schalte Songwriter, unbegrenzte Generierungen und mehr frei",
   },
 };
 
 export default function Dashboard() {
   const { language } = useLanguage();
+  const [, navigate] = useLocation();
   const t = translations[language];
+
+  const { data: user } = useQuery({
+    queryKey: ["/auth/me"],
+    queryFn: async () => {
+      const response = await fetch("/auth/me", { credentials: "include" });
+      if (!response.ok) return null;
+      const data = await response.json();
+      return data.user;
+    },
+  });
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
@@ -108,31 +136,84 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              {t.recentActivity}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentActivity && recentActivity.length > 0 ? (
-              <div className="space-y-2">
-                {recentActivity.map((activity: any, index: number) => (
-                  <div key={index} className="flex items-start gap-3 rounded-md border border-border p-3 text-sm">
-                    <TrendingUp className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                    <div className="flex-1">
-                      <p className="font-medium">{activity.title}</p>
-                      <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
+        <div className="space-y-4">
+          {/* Plan Card */}
+          <Card className="bg-gradient-to-br from-primary/5 to-primary/10 border-primary/20">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  {isFree(user?.plan) ? (
+                    <Zap className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Crown className="h-5 w-5 text-amber-500" />
+                  )}
+                  <CardTitle>{t.yourPlan}</CardTitle>
+                </div>
+                <Badge variant={isFree(user?.plan) ? "secondary" : "default"}>
+                  {isFree(user?.plan) ? "FREE" : "PRO"}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isFree(user?.plan) ? (
+                <>
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">{user?.dailyUsageCount || 0}/5</span> {t.freeRemaining}
+                    </p>
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="bg-primary h-full transition-all"
+                        style={{width: `${((user?.dailyUsageCount || 0) / 5) * 100}%`}}
+                      />
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">{t.noActivity}</p>
-            )}
-          </CardContent>
-        </Card>
+                  <Button 
+                    className="w-full" 
+                    onClick={() => navigate("/plans")}
+                    data-testid="button-upgrade-from-dashboard"
+                  >
+                    <Zap className="w-3 h-3 mr-2" />
+                    {t.upgradeNow}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">{t.proFeatures}</p>
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-foreground">{t.unlimitedDaily}</p>
+                  <p className="text-xs text-muted-foreground">Enjoy unlimited AI operations with PRO</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Recent Activity */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                {t.recentActivity}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {recentActivity && recentActivity.length > 0 ? (
+                <div className="space-y-2">
+                  {recentActivity.map((activity: any, index: number) => (
+                    <div key={index} className="flex items-start gap-3 rounded-md border border-border p-3 text-sm">
+                      <TrendingUp className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                      <div className="flex-1">
+                        <p className="font-medium">{activity.title}</p>
+                        <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t.noActivity}</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         <Card>
           <CardHeader>
@@ -140,12 +221,14 @@ export default function Dashboard() {
             <CardDescription>Get started quickly</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Link href="/documents">
-              <Button className="w-full justify-start" data-testid="button-create-document">
-                <FileText className="h-4 w-4" />
-                {t.createDocument}
-              </Button>
-            </Link>
+            <Button 
+              className="w-full justify-start" 
+              onClick={() => navigate("/ai-writer")}
+              data-testid="button-create-document"
+            >
+              <Wand2 className="h-4 w-4" />
+              {t.createDocument}
+            </Button>
             <Link href="/uploads">
               <Button variant="outline" className="w-full justify-start" data-testid="button-upload-files">
                 <Upload className="h-4 w-4" />
