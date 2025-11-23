@@ -1,10 +1,49 @@
+import React from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Check, Loader2, AlertTriangle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Check, Loader2, AlertTriangle, CreditCard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/components/LanguageProvider";
 import { startUpgrade } from "@/lib/upgradeHelper";
+
+const translations = {
+  en: {
+    subscriptionPlans: "Subscription Plans",
+    chooseThePlan: "Choose the plan that fits your needs",
+    stripeNotConfigured: "Stripe payment processing is not currently configured. Demo access available – contact the administrator.",
+    stripeConfigured: "Stripe payment integration is ready. Click 'Upgrade Now' to start your premium experience.",
+    currentPlan: "Current Plan",
+    youAreOn: "You are on the",
+    plan: "plan",
+    upgradNow: "Upgrade Now",
+    currentPlanBtn: "Current Plan",
+  },
+  de: {
+    subscriptionPlans: "Abonnementpläne",
+    chooseThePlan: "Wählen Sie den Plan, der zu Ihnen passt",
+    stripeNotConfigured: "Stripe-Zahlungsverarbeitung ist nicht konfiguriert. Demo-Zugang verfügbar – kontaktieren Sie den Administrator.",
+    stripeConfigured: "Stripe-Zahlungsintegration ist bereit. Klicken Sie auf 'Jetzt upgraden', um Ihre Premium-Erfahrung zu starten.",
+    currentPlan: "Aktueller Plan",
+    youAreOn: "Sie nutzen den",
+    plan: "Plan",
+    upgradNow: "Jetzt upgraden",
+    currentPlanBtn: "Aktueller Plan",
+  },
+  ar: {
+    subscriptionPlans: "خطط الاشتراك",
+    chooseThePlan: "اختر الخطة التي تناسب احتياجاتك",
+    stripeNotConfigured: "معالجة الدفع عبر Stripe غير مكونة. الوصول التجريبي متاح – اتصل بالمسؤول.",
+    stripeConfigured: "تكامل Stripe جاهز. انقر على 'الترقية الآن' لبدء تجربتك المميزة.",
+    currentPlan: "الخطة الحالية",
+    youAreOn: "أنت على",
+    plan: "الخطة",
+    upgradNow: "الترقية الآن",
+    currentPlanBtn: "الخطة الحالية",
+  },
+};
 
 const plans = [
   {
@@ -60,6 +99,8 @@ const adminNotice = {
 };
 
 export default function Plans() {
+  const { language } = useLanguage();
+  const t = translations[language as keyof typeof translations] || translations.en;
   const { toast } = useToast();
   const { data: user } = useQuery({
     queryKey: ["/auth/me"],
@@ -71,18 +112,20 @@ export default function Plans() {
     },
   });
 
+  const [stripeConfigured, setStripeConfigured] = React.useState(true);
 
   const upgradeMutation = useMutation({
     mutationFn: async (planType: "monthly" | "yearly") => {
       const result = await startUpgrade(planType);
       if (result.state === "error" || result.state === "not-configured") {
-        throw new Error(result.error || "Failed to start upgrade");
+        setStripeConfigured(false);
+        throw new Error(result.error || "Stripe is not configured");
       }
       return result;
     },
     onError: (error: any) => {
       const message = error.message || "Failed to start upgrade process";
-      if (message.includes("not configured")) {
+      if (message.includes("not configured") || message.includes("Stripe")) {
         // Don't show toast for Stripe not configured - it's handled in UI
         return;
       }
@@ -97,19 +140,21 @@ export default function Plans() {
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="mb-12">
-        <h1 className="text-4xl font-bold mb-2">Subscription Plans</h1>
+        <h1 className="text-4xl font-bold mb-2" data-testid="text-plans-title">{t.subscriptionPlans}</h1>
         <p className="text-lg text-muted-foreground">
-          Choose the plan that fits your needs
+          {t.chooseThePlan}
         </p>
       </div>
 
-      {/* Stripe Not Configured Warning */}
-      <Alert className="mb-8 border-amber-200 bg-amber-50 dark:bg-amber-950/30">
-        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-        <AlertDescription className="text-amber-800 dark:text-amber-200">
-          Stripe payment processing is not currently configured. Please contact the administrator to set up billing.
-        </AlertDescription>
-      </Alert>
+      {/* Stripe Configuration Status */}
+      {!stripeConfigured && (
+        <Alert className="mb-8 border-amber-200 bg-amber-50 dark:bg-amber-950/30">
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+          <AlertDescription className="text-amber-800 dark:text-amber-200">
+            {t.stripeNotConfigured}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {plans.map((plan) => (
@@ -131,7 +176,7 @@ export default function Plans() {
             <Button
               className="w-full mb-8"
               variant={plan.id === user?.plan ? "outline" : "default"}
-              disabled={plan.id === user?.plan || upgradeMutation.isPending}
+              disabled={plan.id === user?.plan || upgradeMutation.isPending || (!stripeConfigured && plan.id !== "FREE")}
               data-testid={`button-select-plan-${plan.id}`}
               onClick={() => {
                 if (plan.id === "FREE") return;
@@ -140,7 +185,7 @@ export default function Plans() {
               }}
             >
               {upgradeMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              {plan.id === user?.plan ? "Current Plan" : plan.id === "FREE" ? "Your Plan" : "Upgrade Now"}
+              {plan.id === user?.plan ? t.currentPlanBtn : plan.id === "FREE" ? "Free" : t.upgradNow}
             </Button>
 
             <div className="space-y-3">
@@ -156,23 +201,30 @@ export default function Plans() {
       </div>
 
       <div className="mt-12 space-y-6">
-        <div className="p-6 bg-muted rounded-lg">
-          <h3 className="font-semibold mb-2">📝 Current Plan</h3>
-          <p className="text-muted-foreground">
-            You are on the <strong>{user?.plan || "FREE"}</strong> plan
-          </p>
-          <p className="text-sm text-muted-foreground mt-2">
-            ✓ Stripe payment integration is ready. Click "Upgrade Now" to start your premium experience.
-          </p>
-        </div>
+        <Card className="p-6 bg-muted/50">
+          <div className="flex items-start gap-3 mb-3">
+            <CreditCard className="h-5 w-5 text-primary mt-0.5" />
+            <div>
+              <h3 className="font-semibold mb-2">{t.currentPlan}</h3>
+              <p className="text-muted-foreground">
+                {t.youAreOn} <strong>{user?.plan || "FREE"}</strong> {t.plan}
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {stripeConfigured ? `✓ ${t.stripeConfigured}` : `⚠ ${t.stripeNotConfigured}`}
+              </p>
+            </div>
+          </div>
+        </Card>
 
         {user?.role === "admin" && (
-          <div className="p-6 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <h3 className="font-semibold mb-2 text-blue-900 dark:text-blue-100">🔑 {adminNotice.title}</h3>
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              {adminNotice.description}
-            </p>
-          </div>
+          <Card className="p-6 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+            <div>
+              <h3 className="font-semibold mb-2 text-blue-900 dark:text-blue-100">🔑 {adminNotice.title}</h3>
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                {adminNotice.description}
+              </p>
+            </div>
+          </Card>
         )}
       </div>
     </div>
