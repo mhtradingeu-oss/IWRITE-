@@ -11,20 +11,14 @@ interface CompanyInfo {
 }
 
 export function AppFooter() {
-  const { data: companyInfo } = useQuery({
-    queryKey: ["/api/public/company-info"],
-    queryFn: async () => {
-      const response = await fetch("/api/public/company-info");
-      if (!response.ok) return null;
-      return response.json();
-    },
-  });
-
   const currentYear = new Date().getFullYear();
-  const company = companyInfo?.name || "MH Trading GmbH";
-  const email = companyInfo?.email || "contact@iwrite.ai";
-  const addressLine1 = companyInfo?.addressLine1 || "Polierweg 39";
-  const addressLine2 = companyInfo?.addressLine2 || "12351 Berlin, Germany";
+  const company = "MH Trading GmbH";
+  const email = "info@mhtrading-eu.com";
+  const phone = "+49 30 2206 7319";
+  const addressLine1 = "Polierweg 39";
+  const addressLine2 = "12351 Berlin, Germany";
+  const hrb = "HRB 274951";
+  const vatId = "DE454258724";
 
   const productLinks = [
     { label: "Dashboard", href: "/dashboard" },
@@ -49,14 +43,17 @@ export function AppFooter() {
           <div className="flex flex-col space-y-3">
             <h3 className="text-sm font-semibold text-foreground">IWRITE</h3>
             <p className="text-xs text-muted-foreground leading-snug">
-              AI-powered document writing workspace for professionals.
+              AI-powered document writing workspace. Developed by <span className="font-medium">Crew Art</span> · Powered by <span className="font-medium">{company}</span>.
             </p>
-            <div className="pt-2 space-y-2">
-              <p className="text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{company}</span>
-              </p>
+            <div className="pt-2 space-y-1">
               <p className="text-xs text-muted-foreground">
                 {addressLine1}<br />{addressLine2}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {hrb}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                VAT ID: {vatId}
               </p>
               <p className="text-xs text-muted-foreground">
                 <a 
@@ -65,6 +62,15 @@ export function AppFooter() {
                   data-testid="footer-link-email"
                 >
                   {email}
+                </a>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                <a 
+                  href={`tel:${phone.replace(/\s+/g, '')}`}
+                  className="text-primary hover:text-primary/80 transition-colors"
+                  data-testid="footer-link-phone"
+                >
+                  {phone}
                 </a>
               </p>
             </div>

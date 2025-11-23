@@ -1,0 +1,88 @@
+You are working on the IWRITE project.
+
+SECTION: LANDING + HEADER + FOOTER
+
+GOAL:
+Make sure the public shell of the app is production-ready:
+- Landing page (`/`)
+- Header (top nav)
+- Footer (global)
+All content, actions, links, and i18n must be correct and polished.
+
+GLOBAL CONSTRAINTS:
+- DO NOT change API endpoints, DB schema, or env var names.
+- DO NOT change auth logic or plan logic.
+- DO NOT move/remove QueryClientProvider.
+- You MAY edit React components, layouts, routing, and text.
+
+TASKS:
+
+1) LANDING PAGE (`/`)
+- Locate the Home/Landing page component (e.g. `client/src/pages/Home.tsx` or similar).
+- Ensure:
+  - Clear hero section: title, subtitle, two CTAs:
+    - “Login / Open Workspace” → `/login`
+    - “View Pricing” → `/plans` or `/settings#plans`
+  - Features section describing:
+    - AI Writer
+    - Songwriter
+    - Templates & Style Profiles
+    - QA checks
+    - Topics/Search
+  - Multilingual section (EN/DE/AR).
+  - Company/Trust section mentioning MH Trading GmbH & Crew Art.
+- Verify all buttons:
+  - Scroll or navigate to the correct sections/routes.
+  - No 404s or dead links.
+
+2) HEADER
+- Locate the header/nav component used on the landing page.
+- Ensure it has:
+  - Logo/name (IWRITE).
+  - Nav links:
+    - Product → scroll to Features.
+    - Pricing → scroll or `/plans`.
+    - Login → `/login`.
+  - Language switcher that reuses the existing i18n for EN/DE/AR.
+- Check that:
+  - Header is only shown where needed (Landing/public pages).
+  - Workspace header (if any) is separate and does not conflict.
+
+3) FOOTER
+- Locate the global Footer component.
+- Verify:
+  - Real company info:
+    - MH Trading GmbH
+    - Polierweg 39, 12351 Berlin
+    - HRB 274951
+    - VAT ID: DE454258724
+    - Email: info@mhtrading-eu.com
+    - Phone: +49 30 2206 7319
+  - Sections:
+    - About IWRITE (developed by Crew Art · powered by MH Trading GmbH)
+    - Product (Dashboard, Pricing, Settings links)
+    - Legal (Imprint, Privacy, Terms, Payment)
+    - Support (short text & mail link)
+  - Links:
+    - Imprint → `/legal/imprint`
+    - Privacy Policy → `/legal/privacy`
+    - Terms of Use → `/legal/terms`
+    - Payment Policy → `/legal/payment`
+- Fix spacing:
+  - No giant empty gap above footer.
+  - Responsive grid: 1 column on mobile, 2 on tablet, 4 on desktop.
+
+4) I18N
+- Ensure hero headings, CTA labels, and key footer labels have EN/DE/AR translations using existing i18n.
+- AR text must be RTL/right aligned in Landing.
+
+5) VERIFY
+- Run `npm run build`.
+- Start dev server.
+- As unauthenticated user:
+  - Visit `/` and test all nav links and footer links.
+  - Switch languages and ensure content updates and layout stays sane.
+
+Summarize:
+- Components/files edited.
+- Fixes made to content, links, and layout.

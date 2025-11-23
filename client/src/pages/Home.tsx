@@ -308,12 +308,12 @@ export default function Home() {
   const isRTL = language === "ar";
 
   return (
-    <div className={`min-h-screen bg-background flex flex-col ${isRTL ? "rtl" : ""}`}>
+    <div className={`min-h-screen bg-background flex flex-col ${isRTL ? "rtl" : ""}`} dir={isRTL ? "rtl" : "ltr"}>
       <HomeHeader />
 
       {/* Hero Section */}
       <section className="relative flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-        <div className={`w-full max-w-4xl text-center ${isRTL ? "text-right" : "text-left"}`}>
+        <div className={`w-full max-w-4xl ${isRTL ? "text-right" : "text-center"}`}>
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight mb-4">
             {t.hero.title}
           </h1>
@@ -323,7 +323,7 @@ export default function Home() {
           <p className="text-base sm:text-lg text-muted-foreground mb-8 max-w-3xl mx-auto">
             {t.hero.description}
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className={`flex flex-col sm:flex-row gap-4 justify-center items-center ${isRTL ? "flex-row-reverse" : ""}`}>
             <Button
               size="lg"
               onClick={() => navigate("/login")}

@@ -25,16 +25,24 @@ const navItems = {
   ],
 };
 
+const loginLabels = {
+  en: "Login",
+  de: "Anmelden",
+  ar: "تسجيل الدخول",
+};
+
 export function HomeHeader() {
   const [, navigate] = useLocation();
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage } = useLanguage();
 
   const items = navItems[language as keyof typeof navItems] || navItems.en;
+  const loginLabel = loginLabels[language as keyof typeof loginLabels] || loginLabels.en;
+  const isRTL = language === "ar";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <header className={`sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 ${isRTL ? "rtl" : ""}`}>
+      <div className={`w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center ${isRTL ? "flex-row-reverse" : ""} justify-between`}>
         {/* Logo */}
         <div 
           className="text-2xl font-bold cursor-pointer"
@@ -108,7 +116,7 @@ export function HomeHeader() {
             data-testid="button-home-header-cta"
             className="hidden sm:inline-flex"
           >
-            Login
+            {loginLabel}
           </Button>
         </div>
       </div>
