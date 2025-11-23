@@ -1,0 +1,94 @@
+You are working on the IWRITE project.
+
+SECTION: DOCUMENTS + FILE UPLOADS + TEMPLATES + STYLE PROFILES
+
+GOAL:
+Ensure that all content-management tools fully support:
+- Listing
+- Creating
+- Editing
+- Saving
+- Deleting (if allowed)
+- Linking with AI tools where relevant
+for both FREE and PRO users (with gating where needed).
+
+TASKS:
+
+1) DOCUMENTS PAGE
+- Confirm:
+  - API call to list user documents.
+  - UI:
+    - Table or cards showing title, language, type, createdAt.
+    - Search box (by title).
+    - Filters (by language or type if available).
+    - “New Document” button:
+      - Navigates to `/ai-writer` with an empty prompt.
+  - On row click:
+    - Open document viewer/editor.
+  - In editor:
+    - Ensure changes can be saved via existing API.
+    - Provide “Save” button with loading and success/error states.
+- Empty state:
+  - When no documents:
+    - Show message like:
+      - “No documents yet. Use AI Writer to create your first document.”
+    - CTA to `/ai-writer`.
+
+2) FILE UPLOADS
+- Ensure:
+  - Drag-and-drop or file input is working.
+  - Allowed file types: PDF, DOCX, CSV, XLSX, images (as originally defined).
+  - After upload:
+    - List shows filename, type, size, status.
+    - Optionally link to which documents that file is used in (if available).
+  - Deleting or removing file uses correct API and confirms with the user.
+
+3) TEMPLATES (PRO-focused)
+- For PRO users:
+  - List of templates:
+    - Name, language, type (e.g. “Contract”, “Invoice”).
+    - Actions: View, Edit, Delete.
+  - “Create Template”:
+    - Template name.
+    - Header / footer fields.
+    - Logo upload/URL.
+    - Brand colors.
+  - Preview panel showing how a document would look with this template.
+  - Make sure Save/Update calls correct API and shows toasts.
+
+- For FREE users:
+  - Show either:
+    - Read-only templates, or
+    - Upsell card: “Template customization is available on PRO plan.”
+
+4) STYLE PROFILES
+- Check Style Profiles page:
+  - List of profiles:
+    - Name (e.g., “Contract – Professional, neutral”)
+    - Tone
+    - Voice
+  - “Create Profile”:
+    - Name
+    - Tone dropdown
+    - Voice dropdown
+    - Guidelines textarea
+  - Ensure:
+    - Save and edit calls correct API.
+    - Profiles can be applied in AI Writer.
+
+5) INTEGRATION
+- In AI Writer:
+  - Ensure it can use Templates and Style Profiles:
+    - Dropdowns to select template + style profile (if allowed for current plan).
+- For FREE:
+  - Template/Style selection might be limited or partially available (according to your gating design).
+
+6) VERIFY
+- As PRO:
+  - Create template, style profile, document; reload and ensure all persist.
+- As FREE:
+  - Ensure templates/advanced features respect gating and don’t break.
+
+Summarize:
+- Changes under Documents, File Uploads, Templates, Style Profiles.
+- Confirmed flows: create/edit/save/delete + integration with AI Writer.
