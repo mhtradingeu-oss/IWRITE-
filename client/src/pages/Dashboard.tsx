@@ -80,6 +80,21 @@ const translations = {
   },
 };
 
+interface DashboardStats {
+  documents: number;
+  uploads: number;
+  templates: number;
+  styleProfiles: number;
+}
+
+interface ActivityEntry {
+  id: string;
+  type: string;
+  title?: string;
+  createdAt: string;
+  timestamp?: string;
+}
+
 export default function Dashboard() {
   const { language } = useLanguage();
   const [, navigate] = useLocation();
@@ -95,11 +110,11 @@ export default function Dashboard() {
     },
   });
 
-  const { data: stats, isLoading } = useQuery({
+  const { data: stats, isLoading } = useQuery<DashboardStats>({
     queryKey: ["/api/dashboard/stats"],
   });
 
-  const { data: recentActivity } = useQuery({
+  const { data: recentActivity = [] } = useQuery<ActivityEntry[]>({
     queryKey: ["/api/dashboard/activity"],
   });
 
@@ -198,7 +213,7 @@ export default function Dashboard() {
             <CardContent>
               {recentActivity && recentActivity.length > 0 ? (
                 <div className="space-y-2">
-                  {recentActivity.map((activity: any, index: number) => (
+                  {recentActivity.map((activity: ActivityEntry, index: number) => (
                     <div key={index} className="flex items-start gap-3 rounded-md border border-border p-3 text-sm">
                       <TrendingUp className="h-4 w-4 mt-0.5 text-muted-foreground" />
                       <div className="flex-1">

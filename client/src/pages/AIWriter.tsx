@@ -18,10 +18,16 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/components/LanguageProvider";
 import { isPro, isFree } from "@/lib/auth-helpers";
-import type { UploadedFile, Topic } from "@shared/schema";
+import type { Document, Topic, Template } from "@shared/schema";
+
+interface GeneratedDocResponse {
+  id?: string;
+  title?: string;
+  content?: string;
+}
 
 const translations = {
   en: {
@@ -222,22 +228,22 @@ export default function AIWriter() {
   });
 
   // Fetch documents, topics, and templates
-  const { data: documents = [] } = useQuery({
+  const { data: documents = [] } = useQuery<Document[]>({
     queryKey: ["/api/documents"],
   });
 
-  const { data: topics = [] } = useQuery({
+  const { data: topics = [] } = useQuery<Topic[]>({
     queryKey: ["/api/topics"],
   });
 
-  const { data: templates = [] } = useQuery({
+  const { data: templates = [] } = useQuery<Template[]>({
     queryKey: ["/api/templates"],
   });
 
   // AI generation mutation
-  const generateMutation = useMutation({
+  const generateMutation = useMutation<GeneratedDocResponse>({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/documents/generate", {
+      const res = await apiRequest("POST", "/api/documents/generate", {
         prompt,
         documentType,
         language: selectedLanguage,
@@ -245,12 +251,14 @@ export default function AIWriter() {
         formality,
         templateId: templateId || undefined,
       });
-      return response;
+      return (await res.json()) as GeneratedDocResponse;
     },
     onSuccess: (data) => {
       setGeneratedContent(data.content || "");
       setTitle(data.title || t.untitled);
-      setSavedDocId(data.id);
+      if (data.id) {
+        setSavedDocId(data.id);
+      }
       toast({
         title: t.success,
         description: "Document generated successfully!",
@@ -335,7 +343,10 @@ export default function AIWriter() {
 
                 <div className="space-y-2">
                   <Label htmlFor="language">{t.language}</Label>
-                  <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                  <Select
+                    value={selectedLanguage}
+                    onValueChange={(v) => setSelectedLanguage(v as "ar" | "en" | "de")}
+                  >
                     <SelectTrigger id="language" data-testid="select-language">
                       <SelectValue />
                     </SelectTrigger>
@@ -505,7 +516,7 @@ export default function AIWriter() {
                 <div className="space-y-2">
                   <h4 className="font-semibold text-sm">{t.documents}</h4>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {documents.map((doc: any) => (
+                    {documents.map((doc: Document) => (
                       <div key={doc.id} className="flex items-start gap-2 p-2 rounded hover:bg-muted">
                         <Checkbox
                           id={`doc-${doc.id}`}
@@ -528,7 +539,7 @@ export default function AIWriter() {
                 <div className="space-y-2">
                   <h4 className="font-semibold text-sm">{t.topics}</h4>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {topics.map((topic: any) => (
+                    {topics.map((topic: Topic) => (
                       <div key={topic.id} className="flex items-start gap-2 p-2 rounded hover:bg-muted">
                         <Checkbox
                           id={`topic-${topic.id}`}
@@ -557,7 +568,7 @@ export default function AIWriter() {
                   <SelectValue placeholder={t.chooseTemplate} />
                 </SelectTrigger>
                 <SelectContent>
-                  {templates.map((template: any) => (
+                  {templates.map((template: Template) => (
                     <SelectItem key={template.id} value={template.id}>
                       {template.name}
                     </SelectItem>

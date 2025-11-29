@@ -24,10 +24,12 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/components/LanguageProvider";
-import type { Document, DocumentType } from "@shared/schema";
+import ConfirmationDialog from "@/components/common/ConfirmationDialog";
+import { fillTemplate } from "@/lib/utils";
+import { createAppMutation } from "@/lib/mutationHelper";
+import type { Document, DocumentType, StyleProfile, Template } from "@shared/schema";
 
 const translations = {
   en: {
@@ -56,7 +58,13 @@ const translations = {
     view: "View",
     edit: "Edit",
     delete: "Delete",
+    confirmDeleteDocumentTitle: "Delete document?",
+    confirmDeleteDocumentDescription: "Are you sure you want to delete {name}? This action cannot be undone.",
     download: "Download",
+    saveSuccess: "Document saved successfully",
+    saveError: "Failed to save document",
+    deleteSuccess: "Document deleted",
+    deleteError: "Failed to delete document",
   },
   ar: {
     documents: "المستندات",
@@ -84,7 +92,13 @@ const translations = {
     view: "عرض",
     edit: "تحرير",
     delete: "حذف",
+    confirmDeleteDocumentTitle: "حذف المستند؟",
+    confirmDeleteDocumentDescription: "هل أنت متأكد أنك تريد حذف {name}? لا يمكن التراجع عن هذا الإجراء.",
     download: "تنزيل",
+    saveSuccess: "تم حفظ المستند بنجاح",
+    saveError: "فشل حفظ المستند",
+    deleteSuccess: "تم حذف المستند",
+    deleteError: "فشل حذف المستند",
   },
   de: {
     documents: "Dokumente",
@@ -112,14 +126,19 @@ const translations = {
     view: "Ansehen",
     edit: "Bearbeiten",
     delete: "Löschen",
+    confirmDeleteDocumentTitle: "Dokument löschen?",
+    confirmDeleteDocumentDescription: "Möchten Sie {name} wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
     download: "Herunterladen",
+    saveSuccess: "Dokument erfolgreich gespeichert",
+    saveError: "Dokument konnte nicht gespeichert werden",
+    deleteSuccess: "Dokument gelöscht",
+    deleteError: "Dokument konnte nicht gelöscht werden",
   },
 };
 
 export default function Documents() {
   const { language } = useLanguage();
   const t = translations[language];
-  const { toast } = useToast();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
     documentType: "" as DocumentType | "",
@@ -128,25 +147,31 @@ export default function Documents() {
     templateId: "",
     styleProfileId: "",
   });
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [docPendingDelete, setDocPendingDelete] = useState<Document | null>(null);
 
   const { data: documents, isLoading } = useQuery<Document[]>({
     queryKey: ["/api/documents"],
   });
 
-  const { data: templates } = useQuery({
+  const { data: templates = [] } = useQuery<Template[]>({
     queryKey: ["/api/templates"],
   });
 
-  const { data: styleProfiles } = useQuery({
+  const { data: styleProfiles = [] } = useQuery<StyleProfile[]>({
     queryKey: ["/api/style-profiles"],
   });
 
-  const generateMutation = useMutation({
+  const generateMutation = createAppMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/documents/generate", formData);
     },
+    onSuccessMessage: t.saveSuccess,
+    onErrorMessage: t.saveError,
+    invalidate: ["/api/documents"],
+    retry: 1,
+    debugLabel: "generate-document",
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
       setIsDialogOpen(false);
       setFormData({
         documentType: "",
@@ -155,31 +180,17 @@ export default function Documents() {
         templateId: "",
         styleProfileId: "",
       });
-      toast({
-        title: "Document generated successfully",
-        description: "Your document has been created.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error generating document",
-        description: error.message || "An error occurred",
-        variant: "destructive",
-      });
     },
   });
 
-  const deleteMutation = useMutation({
+  const deleteMutation = createAppMutation({
     mutationFn: async (id: string) => {
       return await apiRequest("DELETE", `/api/documents/${id}`, null);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      toast({
-        title: "Document deleted",
-        description: "The document has been removed.",
-      });
-    },
+    onSuccessMessage: t.deleteSuccess,
+    onErrorMessage: t.deleteError,
+    invalidate: ["/api/documents"],
+    debugLabel: "delete-document",
   });
 
   const docTypeLabels = {
@@ -191,6 +202,27 @@ export default function Documents() {
     "product-page": t.productPage,
     "social-media": t.socialMedia,
   };
+
+  const handleDeleteDialogChange = (open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) {
+      setDocPendingDelete(null);
+    }
+  };
+
+  const getDocumentLabel = (doc: Document | null) => {
+    if (!doc) {
+      return t.documents;
+    }
+    if (doc.title?.trim()) {
+      return doc.title;
+    }
+    return doc.documentType ? docTypeLabels[doc.documentType as keyof typeof docTypeLabels] : t.documents;
+  };
+
+  const deleteDialogDescription = fillTemplate(t.confirmDeleteDocumentDescription, {
+    name: getDocumentLabel(docPendingDelete),
+  });
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -273,7 +305,7 @@ export default function Documents() {
                       <SelectValue placeholder="None" />
                     </SelectTrigger>
                     <SelectContent>
-                      {templates?.map((template: any) => (
+                      {templates.map((template: Template) => (
                         <SelectItem key={template.id} value={template.id}>
                           {template.name}
                         </SelectItem>
@@ -292,7 +324,7 @@ export default function Documents() {
                       <SelectValue placeholder="None" />
                     </SelectTrigger>
                     <SelectContent>
-                      {styleProfiles?.map((profile: any) => (
+                      {styleProfiles.map((profile: StyleProfile) => (
                         <SelectItem key={profile.id} value={profile.id}>
                           {profile.name}
                         </SelectItem>
@@ -306,11 +338,11 @@ export default function Documents() {
               <Button variant="outline" onClick={() => setIsDialogOpen(false)} data-testid="button-cancel">
                 {t.cancel}
               </Button>
-              <Button
-                onClick={() => generateMutation.mutate()}
-                disabled={!formData.documentType || !formData.prompt || generateMutation.isPending}
-                data-testid="button-generate"
-              >
+                  <Button
+                    onClick={() => generateMutation.mutateAsync(undefined)}
+                    disabled={!formData.documentType || !formData.prompt || generateMutation.isPending}
+                    data-testid="button-generate"
+                  >
                 {generateMutation.isPending ? t.generating : t.generate}
               </Button>
             </div>
@@ -353,26 +385,29 @@ export default function Documents() {
                   <span className="text-xs text-muted-foreground">
                     {new Date(doc.createdAt).toLocaleDateString(language)}
                   </span>
-                  <div className="flex items-center gap-1">
-                    <Link href={`/documents/${doc.id}`}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-edit-${doc.id}`}>
-                        <Edit className="h-3 w-3" />
+                    <div className="flex items-center gap-1">
+                      <Link href={`/documents/${doc.id}`}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-edit-${doc.id}`}>
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => {
+                          setDocPendingDelete(doc);
+                          setDeleteDialogOpen(true);
+                        }}
+                        data-testid={`button-delete-${doc.id}`}
+                      >
+                        <Trash2 className="h-3 w-3" />
                       </Button>
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => deleteMutation.mutate(doc.id)}
-                      data-testid={`button-delete-${doc.id}`}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))}
         </div>
       ) : (
         <Card>
@@ -382,6 +417,21 @@ export default function Documents() {
           </CardContent>
         </Card>
       )}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={handleDeleteDialogChange}
+        title={t.confirmDeleteDocumentTitle}
+        description={deleteDialogDescription}
+        confirmLabel={t.delete}
+        cancelLabel={t.cancel}
+        tone="danger"
+        onConfirm={async () => {
+          if (!docPendingDelete) {
+            return;
+          }
+          await deleteMutation.mutateAsync(docPendingDelete.id);
+        }}
+      />
     </div>
   );
 }

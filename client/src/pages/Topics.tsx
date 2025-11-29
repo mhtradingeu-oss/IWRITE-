@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -9,12 +8,14 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Plus, FolderOpen, Tag, FileText, Trash2, Edit } from "lucide-react";
+import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import { useLanguage } from "@/components/LanguageProvider";
+import { fillTemplate } from "@/lib/utils";
+import { createAppMutation } from "@/lib/mutationHelper";
 
 const translations = {
   en: {
@@ -38,7 +39,13 @@ const translations = {
     topicCreated: "Topic created successfully",
     topicUpdated: "Topic updated successfully",
     topicDeleted: "Topic deleted successfully",
-    confirmDeleteTopic: "Are you sure you want to delete this topic?",
+    saveSuccess: "Topic saved successfully",
+    saveError: "Failed to save topic",
+    deleteSuccess: "Topic deleted successfully",
+    deleteError: "Failed to delete topic",
+    deleteTopic: "Delete Topic",
+    confirmDeleteTopicTitle: "Delete topic?",
+    confirmDeleteTopicDescription: "Are you sure you want to delete {name}? This cannot be undone.",
     noTopics: "No topics yet",
     noTopicsDescription: "Create your first topic to start organizing your documents",
     createFirstTopic: "Create First Topic",
@@ -65,7 +72,13 @@ const translations = {
     topicCreated: "تم إنشاء الموضوع بنجاح",
     topicUpdated: "تم تحديث الموضوع بنجاح",
     topicDeleted: "تم حذف الموضوع بنجاح",
-    confirmDeleteTopic: "هل أنت متأكد من حذف هذا الموضوع؟",
+    saveSuccess: "تم حفظ الموضوع بنجاح",
+    saveError: "فشل حفظ الموضوع",
+    deleteSuccess: "تم حذف الموضوع بنجاح",
+    deleteError: "فشل حذف الموضوع",
+    deleteTopic: "حذف الموضوع",
+    confirmDeleteTopicTitle: "حذف الموضوع؟",
+    confirmDeleteTopicDescription: "هل أنت متأكد أنك تريد حذف {name}? لا يمكن التراجع عن هذا الإجراء.",
     noTopics: "لا توجد مواضيع بعد",
     noTopicsDescription: "أنشئ موضوعك الأول لبدء تنظيم مستنداتك",
     createFirstTopic: "إنشاء الموضوع الأول",
@@ -92,7 +105,13 @@ const translations = {
     topicCreated: "Thema erfolgreich erstellt",
     topicUpdated: "Thema erfolgreich aktualisiert",
     topicDeleted: "Thema erfolgreich gelöscht",
-    confirmDeleteTopic: "Möchten Sie dieses Thema wirklich löschen?",
+    saveSuccess: "Thema erfolgreich gespeichert",
+    saveError: "Thema konnte nicht gespeichert werden",
+    deleteSuccess: "Thema erfolgreich gelöscht",
+    deleteError: "Thema konnte nicht gelöscht werden",
+    deleteTopic: "Thema löschen",
+    confirmDeleteTopicTitle: "Thema löschen?",
+    confirmDeleteTopicDescription: "Möchten Sie {name} wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
     noTopics: "Noch keine Themen",
     noTopicsDescription: "Erstellen Sie Ihr erstes Thema, um Ihre Dokumente zu organisieren",
     createFirstTopic: "Erstes Thema erstellen",
@@ -118,11 +137,12 @@ interface Topic {
 
 export default function Topics() {
   const [, navigate] = useLocation();
-  const { toast } = useToast();
   const { language } = useLanguage();
   const t = (key: keyof typeof translations.en) => translations[language][key] || key;
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [topicPendingDelete, setTopicPendingDelete] = useState<Topic | null>(null);
 
   const form = useForm<TopicFormData>({
     resolver: zodResolver(topicSchema),
@@ -139,12 +159,12 @@ export default function Topics() {
   });
 
   // Create topic mutation
-  const createMutation = useMutation({
+  const createMutation = createAppMutation({
     mutationFn: async (data: TopicFormData) => {
       const keywords = data.keywords
-        ? data.keywords.split(",").map(k => k.trim()).filter(Boolean)
+        ? data.keywords.split(",").map((k) => k.trim()).filter(Boolean)
         : [];
-      
+
       const response = await fetch("/api/topics", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -154,38 +174,30 @@ export default function Topics() {
           keywords,
         }),
       });
-      
+
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      
+
       return response.json();
     },
+    onSuccessMessage: t("saveSuccess"),
+    onErrorMessage: t("saveError"),
+    invalidate: ["/api/topics"],
+    debugLabel: "create-topic",
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/topics"] });
       setIsCreateDialogOpen(false);
       form.reset();
-      toast({
-        title: t("success"),
-        description: t("topicCreated"),
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: t("error"),
-        description: error.message,
-        variant: "destructive",
-      });
     },
   });
 
   // Update topic mutation
-  const updateMutation = useMutation({
+  const updateMutation = createAppMutation({
     mutationFn: async ({ id, data }: { id: string; data: TopicFormData }) => {
       const keywords = data.keywords
-        ? data.keywords.split(",").map(k => k.trim()).filter(Boolean)
+        ? data.keywords.split(",").map((k) => k.trim()).filter(Boolean)
         : [];
-      
+
       const response = await fetch(`/api/topics/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -195,58 +207,40 @@ export default function Topics() {
           keywords,
         }),
       });
-      
+
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      
+
       return response.json();
     },
+    onSuccessMessage: t("saveSuccess"),
+    onErrorMessage: t("saveError"),
+    invalidate: ["/api/topics"],
+    debugLabel: "update-topic",
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/topics"] });
       setEditingTopic(null);
       form.reset();
-      toast({
-        title: t("success"),
-        description: t("topicUpdated"),
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: t("error"),
-        description: error.message,
-        variant: "destructive",
-      });
     },
   });
 
   // Delete topic mutation
-  const deleteMutation = useMutation({
+  const deleteMutation = createAppMutation({
     mutationFn: async (id: string) => {
       const response = await fetch(`/api/topics/${id}`, {
         method: "DELETE",
       });
-      
+
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      
+
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/topics"] });
-      toast({
-        title: t("success"),
-        description: t("topicDeleted"),
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: t("error"),
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onSuccessMessage: t("deleteSuccess"),
+    onErrorMessage: t("deleteError"),
+    invalidate: ["/api/topics"],
+    debugLabel: "delete-topic",
   });
 
   const handleSubmit = (data: TopicFormData) => {
@@ -266,11 +260,21 @@ export default function Topics() {
     });
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm(t("confirmDeleteTopic"))) {
-      deleteMutation.mutate(id);
+  const openDeleteDialog = (topic: Topic) => {
+    setTopicPendingDelete(topic);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteDialogChange = (open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) {
+      setTopicPendingDelete(null);
     }
   };
+
+  const deleteDialogDescription = fillTemplate(t("confirmDeleteTopicDescription"), {
+    name: topicPendingDelete?.name ?? t("topics"),
+  });
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
@@ -463,7 +467,7 @@ export default function Topics() {
                       variant="ghost"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDelete(topic.id);
+                        openDeleteDialog(topic);
                       }}
                       data-testid={`button-delete-topic-${topic.id}`}
                     >
@@ -504,6 +508,21 @@ export default function Topics() {
           ))}
         </div>
       )}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={handleDeleteDialogChange}
+        title={t("confirmDeleteTopicTitle")}
+        description={deleteDialogDescription}
+        confirmLabel={t("deleteTopic")}
+        cancelLabel={t("cancel")}
+        tone="danger"
+        onConfirm={async () => {
+          if (!topicPendingDelete) {
+            return;
+          }
+          await deleteMutation.mutateAsync(topicPendingDelete.id);
+        }}
+      />
     </div>
   );
 }

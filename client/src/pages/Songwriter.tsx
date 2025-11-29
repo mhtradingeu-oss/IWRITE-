@@ -14,10 +14,11 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
 import { useLanguage } from "@/components/LanguageProvider";
 import { UpgradeModal } from "@/components/UpgradeModal";
 import { isFree } from "@/lib/auth-helpers";
+import type { StyleProfile } from "@shared/schema";
 
 const translations = {
   en: {
@@ -176,6 +177,7 @@ const translations = {
 };
 
 interface GeneratedLyrics {
+  content?: string;
   intro?: string[];
   verse1?: string[];
   chorus?: string[];
@@ -205,7 +207,7 @@ export default function Songwriter() {
   const userIsFree = isFree(user?.plan);
 
   const [songIdea, setSongIdea] = useState("");
-  const [selectedLanguage, setSelectedLanguage] = useState(language);
+  const [selectedLanguage, setSelectedLanguage] = useState<"ar" | "en" | "de">(language as "ar" | "en" | "de");
   const [dialect, setDialect] = useState("khaliji");
   const [songType, setSongType] = useState("romantic");
   const [structure, setStructure] = useState("intro-verse1-chorus-verse2-chorus");
@@ -215,11 +217,11 @@ export default function Songwriter() {
   const [generatedLyrics, setGeneratedLyrics] = useState<GeneratedLyrics>({});
   const [selectedSections, setSelectedSections] = useState<Set<string>>(new Set());
 
-  const { data: styleProfiles = [] } = useQuery({
+  const { data: styleProfiles = [] } = useQuery<StyleProfile[]>({
     queryKey: ["/api/style-profiles"],
   });
 
-  const generateMutation = useMutation({
+  const generateMutation = useMutation<GeneratedLyrics>({
     mutationFn: async () => {
       if (!songIdea.trim()) {
         toast({ title: t.error, description: "Please enter a song idea" });
@@ -236,7 +238,7 @@ export default function Songwriter() {
         styleProfileId: styleProfileId || undefined,
       });
 
-      return response;
+      return (await response.json()) as GeneratedLyrics;
     },
     onSuccess: (data) => {
       setGeneratedLyrics(data);
@@ -368,7 +370,10 @@ export default function Songwriter() {
 
             <div>
               <Label className="text-sm">{t.language}</Label>
-              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+              <Select
+                value={selectedLanguage}
+                onValueChange={(value) => setSelectedLanguage(value as "ar" | "en" | "de")}
+              >
                 <SelectTrigger data-testid="select-language">
                   <SelectValue />
                 </SelectTrigger>
@@ -468,7 +473,7 @@ export default function Songwriter() {
                   <SelectValue placeholder={t.chooseProfile} />
                 </SelectTrigger>
                 <SelectContent>
-                  {styleProfiles.map((profile: any) => (
+                  {styleProfiles.map((profile: StyleProfile) => (
                     <SelectItem key={profile.id} value={profile.id}>
                       {profile.name}
                     </SelectItem>

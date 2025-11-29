@@ -24,10 +24,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
+import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import { useLanguage } from "@/components/LanguageProvider";
+import { fillTemplate } from "@/lib/utils";
 import type { Template, LogoPosition, LogoSize, FontFamily } from "@shared/schema";
 import { logoPositions, logoSizes, fontFamilies } from "@shared/schema";
+import { createAppMutation } from "@/lib/mutationHelper";
 
 const FONT_FAMILY_MAP: Record<FontFamily, { name: string; css: string; preview: string }> = {
   inter: { name: "Inter", css: "font-sans", preview: "Aa" },
@@ -75,6 +78,14 @@ const translations = {
     cancel: "Cancel",
     edit: "Edit",
     delete: "Delete",
+    confirmDeleteTemplateTitle: "Delete template?",
+    confirmDeleteTemplateDescription: "Are you sure you want to delete {name}? This cannot be undone.",
+    saveSuccess: "Template saved successfully",
+    saveError: "Failed to save template",
+    deleteSuccess: "Template deleted",
+    deleteError: "Failed to delete template",
+    duplicateSuccess: "Template duplicated",
+    duplicateError: "Failed to duplicate template",
     duplicate: "Duplicate",
     enterName: "Enter template name...",
     enterHeader: "Enter header content...",
@@ -118,6 +129,14 @@ const translations = {
     cancel: "إلغاء",
     edit: "تحرير",
     delete: "حذف",
+    confirmDeleteTemplateTitle: "حذف القالب؟",
+    confirmDeleteTemplateDescription: "هل أنت متأكد أنك تريد حذف {name}? لا يمكن التراجع عن هذا الإجراء.",
+    saveSuccess: "تم حفظ القالب بنجاح",
+    saveError: "فشل حفظ القالب",
+    deleteSuccess: "تم حذف القالب",
+    deleteError: "فشل حذف القالب",
+    duplicateSuccess: "تم نسخ القالب",
+    duplicateError: "فشل نسخ القالب",
     duplicate: "نسخ",
     enterName: "أدخل اسم القالب...",
     enterHeader: "أدخل محتوى الرأس...",
@@ -161,6 +180,14 @@ const translations = {
     cancel: "Abbrechen",
     edit: "Bearbeiten",
     delete: "Löschen",
+    confirmDeleteTemplateTitle: "Vorlage löschen?",
+    confirmDeleteTemplateDescription: "Möchten Sie {name} wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
+    saveSuccess: "Vorlage erfolgreich gespeichert",
+    saveError: "Vorlage konnte nicht gespeichert werden",
+    deleteSuccess: "Vorlage gelöscht",
+    deleteError: "Vorlage konnte nicht gelöscht werden",
+    duplicateSuccess: "Vorlage dupliziert",
+    duplicateError: "Vorlage konnte nicht dupliziert werden",
     duplicate: "Duplizieren",
     enterName: "Vorlagennamen eingeben...",
     enterHeader: "Kopfzeileninhalt eingeben...",
@@ -408,6 +435,8 @@ export default function Templates() {
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [templatePendingDelete, setTemplatePendingDelete] = useState<Template | null>(null);
 
   const [formData, setFormData] = useState<TemplateFormState>({
     name: "",
@@ -427,38 +456,36 @@ export default function Templates() {
     queryKey: ["/api/templates"],
   });
 
-  const createMutation = useMutation({
+  const createMutation = createAppMutation({
     mutationFn: async () => {
       return await apiRequest("POST", "/api/templates", formData);
     },
+    onSuccessMessage: t.saveSuccess,
+    onErrorMessage: t.saveError,
+    invalidate: ["/api/templates"],
+    debugLabel: "create-template",
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
       setIsDrawerOpen(false);
       resetForm();
-      toast({
-        title: "Template created",
-        description: "Your template has been saved.",
-      });
     },
   });
 
-  const updateMutation = useMutation({
+  const updateMutation = createAppMutation({
     mutationFn: async () => {
       return await apiRequest("PUT", `/api/templates/${editingTemplate?.id}`, formData);
     },
+    onSuccessMessage: t.saveSuccess,
+    onErrorMessage: t.saveError,
+    invalidate: ["/api/templates"],
+    debugLabel: "update-template",
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
       setIsDrawerOpen(false);
       setEditingTemplate(null);
       resetForm();
-      toast({
-        title: "Template updated",
-        description: "Your changes have been saved.",
-      });
     },
   });
 
-  const duplicateMutation = useMutation({
+  const duplicateMutation = createAppMutation({
     mutationFn: async (template: Template) => {
       const newData = {
         name: `${template.name} (Copy)`,
@@ -473,26 +500,31 @@ export default function Templates() {
       };
       return await apiRequest("POST", "/api/templates", newData);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
-      toast({
-        title: "Template duplicated",
-        description: "Your template has been copied.",
-      });
-    },
+    onSuccessMessage: t.duplicateSuccess,
+    onErrorMessage: t.duplicateError,
+    invalidate: ["/api/templates"],
+    debugLabel: "duplicate-template",
   });
 
-  const deleteMutation = useMutation({
+  const deleteMutation = createAppMutation({
     mutationFn: async (id: string) => {
       return await apiRequest("DELETE", `/api/templates/${id}`, null);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/templates"] });
-      toast({
-        title: "Template deleted",
-        description: "The template has been removed.",
-      });
-    },
+    onSuccessMessage: t.deleteSuccess,
+    onErrorMessage: t.deleteError,
+    invalidate: ["/api/templates"],
+    debugLabel: "delete-template",
+  });
+
+  const handleDeleteDialogChange = (open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) {
+      setTemplatePendingDelete(null);
+    }
+  };
+
+  const deleteDialogDescription = fillTemplate(t.confirmDeleteTemplateDescription, {
+    name: templatePendingDelete?.name ?? t.template,
   });
 
   const resetForm = () => {
@@ -518,10 +550,10 @@ export default function Templates() {
       header: template.header || "",
       footer: template.footer || "",
       logoUrl: template.logoUrl || "",
-      logoPosition: template.logoPosition || "header_bar",
-      logoSize: template.logoSize || "medium",
-      headingFontFamily: template.headingFontFamily || "inter",
-      bodyFontFamily: template.bodyFontFamily || "inter",
+      logoPosition: (template.logoPosition as LogoPosition) || "header_bar",
+      logoSize: (template.logoSize as LogoSize) || "medium",
+      headingFontFamily: (template.headingFontFamily as FontFamily) || "inter",
+      bodyFontFamily: (template.bodyFontFamily as FontFamily) || "inter",
       brandColors: template.brandColors || { primary: "#1E40AF", secondary: "#F59E0B" },
       uploadError: undefined,
       logoFileInfo: undefined,
@@ -617,11 +649,11 @@ export default function Templates() {
       return;
     }
 
-    if (editingTemplate) {
-      updateMutation.mutate();
-    } else {
-      createMutation.mutate();
-    }
+      if (editingTemplate) {
+        updateMutation.mutateAsync(undefined);
+      } else {
+        createMutation.mutateAsync(undefined);
+      }
   };
 
   const handleCloseDrawer = () => {
@@ -1099,7 +1131,10 @@ export default function Templates() {
                   variant="ghost"
                   size="sm"
                   className="text-destructive hover:text-destructive"
-                  onClick={() => deleteMutation.mutate(template.id)}
+                  onClick={() => {
+                    setTemplatePendingDelete(template);
+                    setDeleteDialogOpen(true);
+                  }}
                   data-testid={`button-delete-${template.id}`}
                 >
                   <Trash2 className="h-3 w-3" />
@@ -1116,6 +1151,21 @@ export default function Templates() {
           </CardContent>
         </Card>
       )}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={handleDeleteDialogChange}
+        title={t.confirmDeleteTemplateTitle}
+        description={deleteDialogDescription}
+        confirmLabel={t.delete}
+        cancelLabel={t.cancel}
+        tone="danger"
+        onConfirm={async () => {
+          if (!templatePendingDelete) {
+            return;
+          }
+          await deleteMutation.mutateAsync(templatePendingDelete.id);
+        }}
+      />
     </div>
   );
 }

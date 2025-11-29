@@ -147,6 +147,13 @@ const translations = {
   },
 };
 
+interface DocumentVersion {
+  id: string;
+  version: number;
+  createdAt: string;
+  changeSummary?: string;
+}
+
 export default function DocumentEditor() {
   const [, params] = useRoute("/documents/:id");
   const [, setLocation] = useLocation();
@@ -169,7 +176,7 @@ export default function DocumentEditor() {
     enabled: !!params?.id,
   });
 
-  const { data: versions = [] } = useQuery({
+  const { data: versions = [] } = useQuery<DocumentVersion[]>({
     queryKey: [`/api/documents/${params?.id}/versions`],
     enabled: !!params?.id,
   });
@@ -431,7 +438,7 @@ export default function DocumentEditor() {
                   disabled={exportMutation.isPending}
                   data-testid="button-export-pdf"
                 >
-                  PDF (.pdf)
+                  HTML (.html)
                 </Button>
               </div>
             </DialogContent>
@@ -534,7 +541,7 @@ export default function DocumentEditor() {
 
           <TabsContent value="versions" className="mt-4 space-y-2">
             {versions.length > 0 ? (
-              versions.map((version: any) => (
+              versions.map((version: DocumentVersion) => (
                 <Card key={version.id} data-testid={`card-version-${version.id}`}>
                   <CardContent className="flex items-center justify-between p-4">
                     <div className="flex items-center gap-3">

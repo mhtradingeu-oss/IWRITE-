@@ -16,9 +16,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { apiRequest } from "@/lib/queryClient";
+import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import { useLanguage } from "@/components/LanguageProvider";
+import { fillTemplate } from "@/lib/utils";
 import type { StyleProfile } from "@shared/schema";
+import { createAppMutation } from "@/lib/mutationHelper";
 import {
   Select,
   SelectContent,
@@ -91,6 +94,12 @@ const translations = {
     cancel: "Cancel",
     edit: "Edit",
     delete: "Delete",
+    confirmDeleteProfileTitle: "Delete profile?",
+    confirmDeleteProfileDescription: "Are you sure you want to delete {name}? This cannot be undone.",
+    saveSuccess: "Style profile saved successfully",
+    saveError: "Failed to save style profile",
+    deleteSuccess: "Style profile deleted",
+    deleteError: "Failed to delete style profile",
     generatePreview: "Generate Preview",
     preview: "Preview",
     enterName: "Enter profile name...",
@@ -129,6 +138,12 @@ const translations = {
     cancel: "إلغاء",
     edit: "تحرير",
     delete: "حذف",
+    confirmDeleteProfileTitle: "حذف الملف؟",
+    confirmDeleteProfileDescription: "هل أنت متأكد أنك تريد حذف {name}? لا يمكن التراجع عن هذا الإجراء.",
+    saveSuccess: "تم حفظ الملف النمطي بنجاح",
+    saveError: "فشل حفظ الملف النمطي",
+    deleteSuccess: "تم حذف الملف النمطي",
+    deleteError: "فشل حذف الملف النمطي",
     generatePreview: "توليد معاينة",
     preview: "معاينة",
     enterName: "أدخل اسم الملف...",
@@ -167,6 +182,12 @@ const translations = {
     cancel: "Abbrechen",
     edit: "Bearbeiten",
     delete: "Löschen",
+    confirmDeleteProfileTitle: "Stilprofil löschen?",
+    confirmDeleteProfileDescription: "Möchten Sie {name} wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
+    saveSuccess: "Stilprofil erfolgreich gespeichert",
+    saveError: "Stilprofil konnte nicht gespeichert werden",
+    deleteSuccess: "Stilprofil gelöscht",
+    deleteError: "Stilprofil konnte nicht gelöscht werden",
     generatePreview: "Vorschau generieren",
     preview: "Vorschau",
     enterName: "Profilnamen eingeben...",
@@ -178,6 +199,8 @@ export default function StyleProfiles() {
   const { language } = useLanguage();
   const t = translations[language];
   const { toast } = useToast();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [profilePendingDelete, setProfilePendingDelete] = useState<StyleProfile | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProfile, setEditingProfile] = useState<StyleProfile | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -208,81 +231,78 @@ export default function StyleProfiles() {
     queryKey: ["/api/style-profiles"],
   });
 
-  const createMutation = useMutation({
+  const buildPayload = () => ({
+    ...formData,
+    allowEmojis: formData.allowEmojis ? 1 : 0,
+    allowSlang: formData.allowSlang ? 1 : 0,
+    useMarketingLanguage: formData.useMarketingLanguage ? 1 : 0,
+    requireDisclaimers: formData.requireDisclaimers ? 1 : 0,
+    preferredPhrases: formData.preferredPhrases
+      .split("\n")
+      .filter((p) => p.trim()),
+    forbiddenPhrases: formData.forbiddenPhrases
+      .split("\n")
+      .filter((p) => p.trim()),
+  });
+
+  const createMutation = createAppMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/style-profiles", {
-        ...formData,
-        allowEmojis: formData.allowEmojis ? 1 : 0,
-        allowSlang: formData.allowSlang ? 1 : 0,
-        useMarketingLanguage: formData.useMarketingLanguage ? 1 : 0,
-        requireDisclaimers: formData.requireDisclaimers ? 1 : 0,
-        preferredPhrases: formData.preferredPhrases
-          .split("\n")
-          .filter((p) => p.trim()),
-        forbiddenPhrases: formData.forbiddenPhrases
-          .split("\n")
-          .filter((p) => p.trim()),
-      });
+      return await apiRequest("POST", "/api/style-profiles", buildPayload());
     },
+    onSuccessMessage: t.saveSuccess,
+    onErrorMessage: t.saveError,
+    invalidate: ["/api/style-profiles"],
+    debugLabel: "create-style-profile",
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/style-profiles"] });
       setIsDialogOpen(false);
       resetForm();
       setPreview(null);
-      toast({
-        title: "Profile created",
-        description: "Your style profile has been saved.",
-      });
     },
   });
 
-  const updateMutation = useMutation({
+  const updateMutation = createAppMutation({
     mutationFn: async () => {
-      return await apiRequest("PUT", `/api/style-profiles/${editingProfile?.id}`, {
-        ...formData,
-        allowEmojis: formData.allowEmojis ? 1 : 0,
-        allowSlang: formData.allowSlang ? 1 : 0,
-        useMarketingLanguage: formData.useMarketingLanguage ? 1 : 0,
-        requireDisclaimers: formData.requireDisclaimers ? 1 : 0,
-        preferredPhrases: formData.preferredPhrases
-          .split("\n")
-          .filter((p) => p.trim()),
-        forbiddenPhrases: formData.forbiddenPhrases
-          .split("\n")
-          .filter((p) => p.trim()),
-      });
+      return await apiRequest("PUT", `/api/style-profiles/${editingProfile?.id}`, buildPayload());
     },
+    onSuccessMessage: t.saveSuccess,
+    onErrorMessage: t.saveError,
+    invalidate: ["/api/style-profiles"],
+    debugLabel: "update-style-profile",
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/style-profiles"] });
       setIsDialogOpen(false);
       setEditingProfile(null);
       resetForm();
       setPreview(null);
-      toast({
-        title: "Profile updated",
-        description: "Your changes have been saved.",
-      });
     },
   });
 
-  const deleteMutation = useMutation({
+  const deleteMutation = createAppMutation({
     mutationFn: async (id: string) => {
       return await apiRequest("DELETE", `/api/style-profiles/${id}`, null);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/style-profiles"] });
-      toast({
-        title: "Profile deleted",
-        description: "The style profile has been removed.",
-      });
-    },
+    onSuccessMessage: t.deleteSuccess,
+    onErrorMessage: t.deleteError,
+    invalidate: ["/api/style-profiles"],
+    debugLabel: "delete-style-profile",
+  });
+
+  const handleDeleteDialogChange = (open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) {
+      setProfilePendingDelete(null);
+    }
+  };
+
+  const deleteDialogDescription = fillTemplate(t.confirmDeleteProfileDescription, {
+    name: profilePendingDelete?.name ?? t.styleProfiles,
   });
 
   const previewMutation = useMutation({
     mutationFn: async () => {
       if (!editingProfile) return "";
       const response = await apiRequest("POST", `/api/style-profiles/${editingProfile.id}/preview`, {});
-      return response.preview;
+      const data = (await response.json()) as { preview: string };
+      return data.preview;
     },
     onSuccess: (data) => {
       setPreview(data);
@@ -346,11 +366,11 @@ export default function StyleProfiles() {
   };
 
   const handleSubmit = () => {
-    if (editingProfile) {
-      updateMutation.mutate();
-    } else {
-      createMutation.mutate();
-    }
+      if (editingProfile) {
+        updateMutation.mutateAsync(undefined);
+      } else {
+        createMutation.mutateAsync(undefined);
+      }
   };
 
   return (
@@ -714,7 +734,7 @@ export default function StyleProfiles() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => previewMutation.mutate()}
+                    onClick={() => previewMutation.mutateAsync(undefined)}
                     disabled={previewMutation.isPending}
                     className="w-full"
                     data-testid="button-generate-preview"
@@ -832,7 +852,10 @@ export default function StyleProfiles() {
                     variant="ghost"
                     size="sm"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => deleteMutation.mutate(profile.id)}
+                    onClick={() => {
+                      setProfilePendingDelete(profile);
+                      setDeleteDialogOpen(true);
+                    }}
                     data-testid={`button-delete-${profile.id}`}
                   >
                     <Trash2 className="h-3 w-3" />
@@ -851,6 +874,21 @@ export default function StyleProfiles() {
           </CardContent>
         </Card>
       )}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={handleDeleteDialogChange}
+        title={t.confirmDeleteProfileTitle}
+        description={deleteDialogDescription}
+        confirmLabel={t.delete}
+        cancelLabel={t.cancel}
+        tone="danger"
+        onConfirm={async () => {
+          if (!profilePendingDelete) {
+            return;
+          }
+          await deleteMutation.mutateAsync(profilePendingDelete.id);
+        }}
+      />
     </div>
   );
 }

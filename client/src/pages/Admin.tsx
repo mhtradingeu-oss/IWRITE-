@@ -28,19 +28,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/components/LanguageProvider";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import {
   Loader2,
   Shield,
@@ -57,17 +49,38 @@ import {
   Copy,
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { createAppMutation } from "@/lib/mutationHelper";
 
-interface User {
+const adminTranslations = {
+  en: {
+    planUpdateSuccess: "User plan updated",
+    planUpdateError: "Failed to update plan",
+    resetSuccess: "User usage reset",
+    resetError: "Failed to reset usage",
+  },
+  ar: {
+    planUpdateSuccess: "تم تحديث خطة المستخدم",
+    planUpdateError: "فشل تحديث الخطة",
+    resetSuccess: "تم إعادة ضبط الاستخدام",
+    resetError: "فشل إعادة ضبط الاستخدام",
+  },
+  de: {
+    planUpdateSuccess: "Benutzerplan aktualisiert",
+    planUpdateError: "Plan konnte nicht aktualisiert werden",
+    resetSuccess: "Nutzung zurückgesetzt",
+    resetError: "Zurücksetzen der Nutzung fehlgeschlagen",
+  },
+};
+
+interface AdminUser {
   id: string;
   email: string;
   role: string;
   plan: string;
   dailyUsageCount: number;
-  dailyUsageDate?: string;
   createdAt: string;
-  planStartedAt: string;
-  planExpiresAt?: string;
+  planStartedAt?: string | null;
+  planExpiresAt?: string | null;
 }
 
 interface Stats {
@@ -84,12 +97,16 @@ interface Stats {
 
 export default function Admin() {
   const { toast } = useToast();
+  const { language } = useLanguage();
+  const t = adminTranslations[language] ?? adminTranslations.en;
   const [searchEmail, setSearchEmail] = useState<string>("");
   const [planFilter, setPlanFilter] = useState<string>("all");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [newDailyLimit, setNewDailyLimit] = useState<string>("");
   const [aiPrompt, setAiPrompt] = useState<string>("");
   const [aiResponse, setAiResponse] = useState<string>("");
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [userPendingReset, setUserPendingReset] = useState<AdminUser | null>(null);
 
   // Fetch current user to check if admin
   const { data: currentUser } = useQuery({
@@ -102,14 +119,14 @@ export default function Admin() {
   });
 
   // Fetch all users
-  const { data: users = [], isLoading: usersLoading } = useQuery({
+  const { data: users = [], isLoading: usersLoading } = useQuery<AdminUser[]>({
     queryKey: ["/api/admin/users"],
     queryFn: async () => {
       const response = await fetch("/api/admin/users", { credentials: "include" });
       if (!response.ok) throw new Error("Failed to fetch users");
       return response.json().then((data) => data.users || []);
     },
-    enabled: !!currentUser?.role === "admin",
+    enabled: currentUser?.role === "admin",
   });
 
   // Fetch system stats
@@ -120,7 +137,7 @@ export default function Admin() {
       if (!response.ok) throw new Error("Failed to fetch stats");
       return response.json();
     },
-    enabled: !!currentUser?.role === "admin",
+    enabled: currentUser?.role === "admin",
   });
 
   // Fetch maintenance mode status
@@ -131,11 +148,11 @@ export default function Admin() {
       if (!response.ok) throw new Error("Failed to fetch maintenance status");
       return response.json();
     },
-    enabled: !!currentUser?.role === "admin",
+    enabled: currentUser?.role === "admin",
   });
 
   // Update plan mutation
-  const updatePlanMutation = useMutation({
+  const updatePlanMutation = createAppMutation({
     mutationFn: async ({ userId, plan }: { userId: string; plan: string }) => {
       const response = await fetch(`/api/admin/users/${userId}/plan`, {
         method: "PUT",
@@ -146,22 +163,14 @@ export default function Admin() {
       if (!response.ok) throw new Error("Failed to update plan");
       return response.json();
     },
-    onSuccess: () => {
-      toast({ title: "Success", description: "User plan updated" });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onSuccessMessage: t.planUpdateSuccess,
+    onErrorMessage: t.planUpdateError,
+    invalidate: ["/api/admin/users", "/api/admin/stats"],
+    debugLabel: "update-plan",
   });
 
   // Reset usage mutation
-  const resetUsageMutation = useMutation({
+  const resetUsageMutation = createAppMutation({
     mutationFn: async (userId: string) => {
       const response = await fetch(`/api/admin/users/${userId}/reset-usage`, {
         method: "PUT",
@@ -170,19 +179,22 @@ export default function Admin() {
       if (!response.ok) throw new Error("Failed to reset usage");
       return response.json();
     },
-    onSuccess: () => {
-      toast({ title: "Success", description: "User usage reset" });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onSuccessMessage: t.resetSuccess,
+    onErrorMessage: t.resetError,
+    invalidate: ["/api/admin/users", "/api/admin/stats"],
+    debugLabel: "reset-usage",
   });
+
+  const handleResetDialogChange = (open: boolean) => {
+    setResetDialogOpen(open);
+    if (!open) {
+      setUserPendingReset(null);
+    }
+  };
+
+  const resetDialogDescription = userPendingReset
+    ? `This will reset ${userPendingReset.email}'s daily usage count to 0.`
+    : "This will reset the user's daily usage count to 0.";
 
   // Update daily limit mutation
   const updateDailyLimitMutation = useMutation({
@@ -283,7 +295,7 @@ export default function Admin() {
   }
 
   // Filter users based on search and filters
-  const filteredUsers = users.filter((user) => {
+  const filteredUsers = users.filter((user: AdminUser) => {
     const matchEmail = user.email.toLowerCase().includes(searchEmail.toLowerCase());
     const matchPlan = planFilter === "all" || user.plan === planFilter;
     const matchRole = roleFilter === "all" || user.role === roleFilter;
@@ -512,14 +524,14 @@ export default function Admin() {
                       Manage user plans, reset usage, and monitor activity
                     </CardDescription>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      const link = document.createElement("a");
-                      link.href = "/api/admin/users/export";
-                      link.download = true;
-                      document.body.appendChild(link);
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const link = document.createElement("a");
+                          link.href = "/api/admin/users/export";
+                          link.download = "";
+                          document.body.appendChild(link);
                       link.click();
                       document.body.removeChild(link);
                     }}
@@ -583,7 +595,7 @@ export default function Admin() {
                   <p className="text-muted-foreground text-center py-8">No users found</p>
                 ) : (
                   <div className="space-y-2">
-                    {filteredUsers.map((user) => (
+                    {filteredUsers.map((user: AdminUser) => (
                       <div
                         key={user.id}
                         className="flex items-center justify-between p-4 bg-muted rounded-lg hover-elevate"
@@ -640,33 +652,18 @@ export default function Admin() {
                                 <p className="text-sm text-muted-foreground mb-3">
                                   Daily Usage: <span className="font-bold">{user.dailyUsageCount}</span>
                                 </p>
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <Button size="sm" variant="outline" className="w-full">
-                                      Reset Usage
-                                    </Button>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Reset Usage?</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        This will reset {user.email}'s daily usage count to 0.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <div className="flex gap-3">
-                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => resetUsageMutation.mutate(user.id)}
-                                        disabled={resetUsageMutation.isPending}
-                                      >
-                                        {resetUsageMutation.isPending && (
-                                          <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                                        )}
-                                        Reset
-                                      </AlertDialogAction>
-                                    </div>
-                                  </AlertDialogContent>
-                                </AlertDialog>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full"
+                                  onClick={() => {
+                                    setUserPendingReset(user);
+                                    setResetDialogOpen(true);
+                                  }}
+                                  disabled={resetUsageMutation.isPending}
+                                >
+                                  Reset Usage
+                                </Button>
                               </div>
                             </div>
                           </DialogContent>
@@ -871,6 +868,21 @@ export default function Admin() {
             </Card>
           </TabsContent>
         </Tabs>
+        <ConfirmationDialog
+          open={resetDialogOpen}
+          onOpenChange={handleResetDialogChange}
+          title="Reset Usage?"
+          description={resetDialogDescription}
+          confirmLabel="Reset"
+          cancelLabel="Cancel"
+          tone="warning"
+          onConfirm={async () => {
+            if (!userPendingReset) {
+              return;
+            }
+            await resetUsageMutation.mutateAsync(userPendingReset.id);
+          }}
+        />
       </div>
     </div>
   );
