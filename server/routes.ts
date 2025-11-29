@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import multer from "multer";
-import { storage } from "./storage";
+import { storage, type IStorage } from "./storage";
 import { generateDocument, rewriteDocument, translateDocument, performQACheck } from "./ai";
 import { extractTextFromFile } from "./fileProcessing";
 import { insertDocumentSchema, insertTemplateSchema, insertStyleProfileSchema, exportDocumentSchema } from "@shared/schema";
@@ -22,6 +22,8 @@ let bucket: any = null;
     bucket = gcsStorage.bucket(process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID);
   }
 })();
+
+const archivedDocumentIds = new Set<string>();
 
 // Configure multer for file uploads
 const upload = multer({
@@ -214,6 +216,45 @@ export async function registerRoutes(app: Express) {
     }
   });
 
+  app.get("/api/documents/archived", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const documents = await storage.getAllDocuments();
+      const archivedDocuments = documents.filter((doc) => archivedDocumentIds.has(doc.id));
+      res.json(archivedDocuments);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.patch("/api/documents/:id/restore", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const document = await storage.getDocument(req.params.id);
+      if (!document || !archivedDocumentIds.has(req.params.id)) {
+        return res.status(404).json({ error: "Archived document not found" });
+      }
+
+      archivedDocumentIds.delete(req.params.id);
+      res.json({ success: true, document });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/documents/:id/permanent", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const document = await storage.getDocument(req.params.id);
+      if (!document) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      await storage.deleteDocument(req.params.id);
+      archivedDocumentIds.delete(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Document rewriting
   app.post("/api/documents/:id/rewrite", requireAuth, checkDailyLimit, async (req: Request, res: Response) => {
     try {
@@ -379,7 +420,7 @@ export async function registerRoutes(app: Express) {
           break;
         case "pdf":
           buffer = await exportToPDF(document, template);
-          contentType = "text/html"; // For now, returning HTML instead of actual PDF
+          contentType = "text/html; charset=utf-8"; // Returning styled HTML rather than a PDF binary
           filename = `${document.title.replace(/[^a-z0-9]/gi, "_")}.html`;
           break;
         default:

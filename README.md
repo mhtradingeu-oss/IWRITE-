@@ -72,6 +72,30 @@ npm run start
 
 The application will be served on port 5000.
 
+## Docker Workflows
+
+Dockerized dev and prod flows now live side by side with isolated networks, volumes, and environment files.
+
+### Development
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+- Starts Postgres (`5433`), Redis (`6380`), and the Express/Vite dev server (`5000`).
+- `server/.env.docker.dev` provides the runtime defaults; adjust secrets there if needed.
+- Code changes are reflected immediately because the project directory is mounted into the container.
+
+### Production
+
+```bash
+docker compose up --build
+```
+
+- Builds the full stack (backend + static frontend) and exposes the API at `http://localhost:5000` and the SPA via Nginx at `http://localhost:8080`.
+- `server/.env.docker` captures production-ready secrets; update it with your OpenAI key, JWT secret, Stripe credentials, etc.
+- Each service runs on its own Docker network/volume pair so the database, cache, backend, and frontend do not interfere with one another.
+
 ## Project Structure
 
 ```

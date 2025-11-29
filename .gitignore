@@ -17,6 +17,9 @@ coverage/
 .env.*.dev
 .env.*.test
 
+# Server-only environment
+server/.env
+
 # Operating systems
 .DS_Store
 Thumbs.db

@@ -1,7 +1,7 @@
 // Reference: blueprint:javascript_openai_ai_integrations
 import OpenAI from "openai";
 import pLimit from "p-limit";
-import pRetry from "p-retry";
+import pRetry, { AbortError } from "p-retry";
 
 // This is using Replit's AI Integrations service, which provides OpenAI-compatible API access without requiring your own OpenAI API key.
 const openai = new OpenAI({
@@ -73,7 +73,7 @@ export async function generateDocument(params: {
         if (isRateLimitError(error)) {
           throw error; // Rethrow to trigger p-retry
         }
-        throw new pRetry.AbortError(error);
+        throw new AbortError(error);
       }
     },
     {

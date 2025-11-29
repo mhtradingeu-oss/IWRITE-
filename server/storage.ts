@@ -23,6 +23,9 @@ import {
   type InsertEntity,
   type SongwriterFeedback,
   type InsertSongwriterFeedback,
+  type LogoPosition,
+  type LogoSize,
+  type FontFamily,
   documents,
   templates,
   styleProfiles,
@@ -35,11 +38,91 @@ import {
   topicPacks,
   entities,
   songwriterFeedback,
+  logoPositions,
+  logoSizes,
+  fontFamilies,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { eq, desc, sql, inArray } from "drizzle-orm";
+
+type ChunkMetadataShape = {
+  startChar?: number;
+  endChar?: number;
+  pageNumber?: number;
+  section?: string;
+};
+
+type EntityMetadataShape = {
+  unit?: string;
+  currency?: string;
+  regulation?: string;
+};
+
+const normalizeChunkMetadata = (metadata?: Record<string, unknown> | null): ChunkMetadataShape | undefined => {
+  if (!metadata) return undefined;
+  const result: ChunkMetadataShape = {};
+  if (typeof metadata.startChar === "number") {
+    result.startChar = metadata.startChar;
+  }
+  if (typeof metadata.endChar === "number") {
+    result.endChar = metadata.endChar;
+  }
+  if (typeof metadata.pageNumber === "number") {
+    result.pageNumber = metadata.pageNumber;
+  }
+  if (typeof metadata.section === "string") {
+    result.section = metadata.section;
+  }
+  return Object.keys(result).length ? result : undefined;
+};
+
+const normalizeEntityMetadata = (metadata?: Record<string, unknown> | null): EntityMetadataShape | undefined => {
+  if (!metadata) return undefined;
+  const result: EntityMetadataShape = {};
+  if (typeof metadata.unit === "string") {
+    result.unit = metadata.unit;
+  }
+  if (typeof metadata.currency === "string") {
+    result.currency = metadata.currency;
+  }
+  if (typeof metadata.regulation === "string") {
+    result.regulation = metadata.regulation;
+  }
+  return Object.keys(result).length ? result : undefined;
+};
+
+const logoPositionSet = new Set(logoPositions);
+const logoSizeSet = new Set(logoSizes);
+const fontFamilySet = new Set(fontFamilies);
+
+const normalizeLogoPosition = (value?: string | null): LogoPosition => {
+  if (value && logoPositionSet.has(value as LogoPosition)) {
+    return value as LogoPosition;
+  }
+  return "header_bar";
+};
+
+const normalizeLogoSize = (value?: string | null): LogoSize => {
+  if (value && logoSizeSet.has(value as LogoSize)) {
+    return value as LogoSize;
+  }
+  return "medium";
+};
+
+const normalizeFontFamily = (value?: string | null): FontFamily => {
+  if (value && fontFamilySet.has(value as FontFamily)) {
+    return value as FontFamily;
+  }
+  return "inter";
+};
+
+type SampleSectionEntry = {
+  heading: string;
+  content: string;
+  sourceChunkIds: string[];
+};
 
 export interface IStorage {
   // Documents
@@ -117,9 +200,12 @@ export interface IStorage {
   createEntity(entity: InsertEntity): Promise<Entity>;
   deleteEntity(id: string): Promise<boolean>;
 
-  // Songwriter Feedback
   getSongwriterFeedback(styleProfileId: string, limit?: number): Promise<SongwriterFeedback[]>;
   createSongwriterFeedback(feedback: InsertSongwriterFeedback): Promise<SongwriterFeedback>;
+
+  // File buffers
+  storeFileBuffer(id: string, buffer: Buffer, mimeType: string): void;
+  getFileBuffer(id: string): { buffer: Buffer; mimeType: string } | undefined;
 }
 
 export class MemStorage implements IStorage {
@@ -150,6 +236,26 @@ export class MemStorage implements IStorage {
 
   getFileBuffer(id: string): { buffer: Buffer; mimeType: string } | undefined {
     return this.fileBuffers.get(id);
+  }
+
+  async getSongwriterFeedback(styleProfileId: string, limit?: number): Promise<SongwriterFeedback[]> {
+    const filtered = this.songwriterFeedbackList.filter((item) => item.styleProfileId === styleProfileId);
+    if (typeof limit === "number" && limit >= 0) {
+      return filtered.slice(0, limit);
+    }
+    return filtered;
+  }
+
+  async createSongwriterFeedback(feedback: InsertSongwriterFeedback): Promise<SongwriterFeedback> {
+    const record: SongwriterFeedback = {
+      ...feedback,
+      styleProfileId: feedback.styleProfileId ?? null,
+      userNote: feedback.userNote ?? null,
+      id: randomUUID(),
+      createdAt: new Date(),
+    };
+    this.songwriterFeedbackList.push(record);
+    return record;
   }
 
   // Documents
@@ -215,6 +321,10 @@ export class MemStorage implements IStorage {
       footer: template.footer || null,
       logoUrl: template.logoUrl || null,
       brandColors: template.brandColors || null,
+      logoPosition: normalizeLogoPosition(template.logoPosition || null),
+      logoSize: normalizeLogoSize(template.logoSize || null),
+      headingFontFamily: normalizeFontFamily(template.headingFontFamily || null),
+      bodyFontFamily: normalizeFontFamily(template.bodyFontFamily || null),
       createdAt: new Date(),
     };
     this.templates.set(id, newTemplate);
@@ -394,6 +504,7 @@ export class MemStorage implements IStorage {
 // Database Storage Implementation
 export class DbStorage implements IStorage {
   private db;
+  private fileBuffers: Map<string, { buffer: Buffer; mimeType: string }>;
 
   constructor() {
     if (!process.env.DATABASE_URL) {
@@ -401,6 +512,15 @@ export class DbStorage implements IStorage {
     }
     const sql = neon(process.env.DATABASE_URL);
     this.db = drizzle(sql);
+    this.fileBuffers = new Map();
+  }
+ 
+  storeFileBuffer(id: string, buffer: Buffer, mimeType: string): void {
+    this.fileBuffers.set(id, { buffer, mimeType });
+  }
+
+  getFileBuffer(id: string): { buffer: Buffer; mimeType: string } | undefined {
+    return this.fileBuffers.get(id);
   }
 
   // Documents
@@ -622,12 +742,7 @@ export class DbStorage implements IStorage {
     const data: typeof documentChunks.$inferInsert = {
       ...chunk,
       embedding: chunk.embedding ? [...chunk.embedding] : undefined,
-      metadata: chunk.metadata ? {
-        startChar: chunk.metadata.startChar,
-        endChar: chunk.metadata.endChar,
-        pageNumber: chunk.metadata.pageNumber,
-        section: chunk.metadata.section,
-      } : undefined,
+      metadata: normalizeChunkMetadata(chunk.metadata ?? undefined),
     };
     const result = await this.db.insert(documentChunks).values(data).returning();
     return result[0];
@@ -720,14 +835,18 @@ export class DbStorage implements IStorage {
   }
 
   async createTopicPack(pack: InsertTopicPack): Promise<TopicPack> {
+    const sections = pack.sampleSections as SampleSectionEntry[] | undefined;
+
     const data: typeof topicPacks.$inferInsert = {
       ...pack,
       priorityRules: pack.priorityRules ? [...pack.priorityRules] : undefined,
-      sampleSections: pack.sampleSections ? pack.sampleSections.map(s => ({
-        heading: s.heading,
-        content: s.content,
-        sourceChunkIds: [...s.sourceChunkIds],
-      })) : undefined,
+      sampleSections: sections
+        ? sections.map((s) => ({
+          heading: s.heading,
+          content: s.content,
+          sourceChunkIds: [...s.sourceChunkIds],
+        }))
+        : undefined,
     };
     const result = await this.db.insert(topicPacks).values(data).returning();
     return result[0];
@@ -819,11 +938,7 @@ export class DbStorage implements IStorage {
   async createEntity(entity: InsertEntity): Promise<Entity> {
     const data: typeof entities.$inferInsert = {
       ...entity,
-      metadata: entity.metadata ? {
-        unit: entity.metadata.unit,
-        currency: entity.metadata.currency,
-        regulation: entity.metadata.regulation,
-      } : undefined,
+      metadata: normalizeEntityMetadata(entity.metadata ?? undefined),
     };
     const result = await this.db.insert(entities).values(data).returning();
     return result[0];
@@ -833,6 +948,28 @@ export class DbStorage implements IStorage {
     const result = await this.db.delete(entities).where(eq(entities.id, id)).returning();
     return result.length > 0;
   }
+
+  async getSongwriterFeedback(styleProfileId: string, limit?: number): Promise<SongwriterFeedback[]> {
+    let query = this.db
+      .select()
+      .from(songwriterFeedback)
+      .where(eq(songwriterFeedback.styleProfileId, styleProfileId))
+      .orderBy(desc(songwriterFeedback.createdAt));
+    if (limit && limit > 0) {
+      query = query.limit(limit) as any;
+    }
+    return await query;
+  }
+
+  async createSongwriterFeedback(feedback: InsertSongwriterFeedback): Promise<SongwriterFeedback> {
+    const data = {
+      ...feedback,
+      styleProfileId: feedback.styleProfileId ?? null,
+    };
+    const result = await this.db.insert(songwriterFeedback).values(data).returning();
+    return result[0];
+  }
+
 }
 
 // Database client initialization for direct use (e.g., in authRoutes)
@@ -843,5 +980,5 @@ if (process.env.DATABASE_URL) {
 }
 
 // Use DbStorage for production, MemStorage for testing
-export const storage = process.env.DATABASE_URL ? new DbStorage() : new MemStorage();
+export const storage: IStorage = process.env.DATABASE_URL ? new DbStorage() : new MemStorage();
 export { db };

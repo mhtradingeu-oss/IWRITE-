@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import pRetry from "p-retry";
+import pRetry, { AbortError } from "p-retry";
 
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
@@ -152,7 +152,7 @@ Follow all the rules, guidelines, and structure specified in the system prompt. 
         if (isRateLimitError(error)) {
           throw error;
         }
-        throw new pRetry.AbortError(error);
+        throw new AbortError(error);
       }
     },
     {

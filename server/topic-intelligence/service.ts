@@ -4,10 +4,21 @@
  */
 
 import { chunkDocument } from "./chunking.js";
-import { generateEmbedding, generateEmbeddingsBatch, findSimilarChunks } from "./embeddings.js";
-import { classifyTopics, extractEntities, extractSectionPatterns } from "./classification.js";
+import { generateEmbedding, generateEmbeddingsBatch } from "./embeddings.js";
+import { classifyTopics, extractEntities } from "./classification.js";
 import type { IStorage } from "../storage.js";
 import type { InsertDocumentChunk, InsertTopic, InsertDocumentTopic, InsertEntity } from "@shared/schema";
+
+const topicIntelligenceConfig = {
+  embeddingsEnabled: process.env.TOPIC_INTELLIGENCE_EMBEDDINGS !== "off",
+  batchSize: parseInt(process.env.TOPIC_INTELLIGENCE_BATCH || "50", 10),
+};
+
+const topicIntelligenceSearchConfig = {
+  embeddingsEnabled: process.env.TOPIC_INTELLIGENCE_EMBEDDINGS !== "off",
+  hybridMode: process.env.TOPIC_INTELLIGENCE_HYBRID === "on",
+  chunkLimitForSearch: parseInt(process.env.TOPIC_INTELLIGENCE_CHUNK_LIMIT || "300", 10),
+};
 
 export class TopicIntelligenceService {
   constructor(private storage: IStorage) {}
@@ -52,7 +63,33 @@ export class TopicIntelligenceService {
 
       console.log(`Created ${chunks.length} chunks for file ${file.filename}`);
 
-      // Step 2: Store chunks WITHOUT embeddings (simplified mode)
+      const chunkTexts = chunks.map((chunk) =>
+        chunk.heading ? `${chunk.heading}\n${chunk.content}` : chunk.content
+      );
+
+      const chunkEmbeddings: Array<number[] | undefined> = [];
+      let embeddingsEnabled = topicIntelligenceConfig.embeddingsEnabled;
+
+      if (embeddingsEnabled) {
+        try {
+          for (let i = 0; i < chunkTexts.length; i += topicIntelligenceConfig.batchSize) {
+            const batch = chunkTexts.slice(i, i + topicIntelligenceConfig.batchSize);
+            const results = await generateEmbeddingsBatch(batch);
+            chunkEmbeddings.push(...results.map((r) => r.embedding));
+          }
+          console.log(
+            `[topic-intel] generated embeddings for ${chunkTexts.length} chunks for file ${file.id}`
+          );
+        } catch (error: any) {
+          console.warn(
+            "[topic-intel] embedding generation failed; falling back to keyword-only chunks:",
+            error
+          );
+          embeddingsEnabled = false;
+        }
+      }
+
+      // Step 2: Store chunks (with embeddings when available)
       const storedChunks: string[] = [];
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
@@ -62,7 +99,10 @@ export class TopicIntelligenceService {
           chunkIndex: chunk.index,
           content: chunk.content,
           heading: chunk.heading,
-          embedding: [], // Empty array - no AI embeddings
+          embedding:
+          embeddingsEnabled && chunkEmbeddings[i]
+              ? chunkEmbeddings[i]
+              : [],
           metadata: chunk.metadata,
         };
 
@@ -150,55 +190,99 @@ export class TopicIntelligenceService {
     heading?: string;
     sourceFile?: string;
   }>> {
-    const { topK = 10, topicId } = options;
+    const { topK = 10, topicId, threshold = 0 } = options;
 
     try {
-      // Get all chunks (or filter by topic)
       let chunks = await this.storage.getAllDocumentChunks();
 
-      // Filter by topic if specified
       if (topicId) {
         const topicFiles = await this.storage.getDocumentTopicsByTopic(topicId);
-        const fileIds = topicFiles.map(t => t.uploadedFileId).filter(Boolean) as string[];
-        chunks = chunks.filter(c => c.uploadedFileId && fileIds.includes(c.uploadedFileId));
+        const fileIds = topicFiles.map((t) => t.uploadedFileId).filter(Boolean) as string[];
+        chunks = chunks.filter((c) => c.uploadedFileId && fileIds.includes(c.uploadedFileId));
       }
 
-      // Simple keyword matching
-      const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-      
-      const results = chunks
-        .map(chunk => {
-          const content = chunk.content.toLowerCase();
-          const matches = queryWords.filter(word => content.includes(word)).length;
-          const similarity = matches / queryWords.length;
-          
-          return {
-            chunk,
-            chunkId: chunk.id,
-            content: chunk.content,
-            similarity,
-            heading: chunk.heading || undefined,
-          };
-        })
-        .filter(r => r.similarity > 0)
+      chunks = chunks.slice(0, topicIntelligenceSearchConfig.chunkLimitForSearch);
+
+      const queryWords = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+      const keywordInfo = chunks.map((chunk) => {
+        const content = chunk.content.toLowerCase();
+        const matches = queryWords.filter((word) => content.includes(word)).length;
+        const keywordScore = queryWords.length ? matches / queryWords.length : 0;
+        return { chunk, keywordScore, content };
+      });
+
+      const hasEmbeddings = chunks.some(
+        (chunk) => Array.isArray(chunk.embedding) && chunk.embedding.length > 0
+      );
+      const useEmbeddings =
+        topicIntelligenceSearchConfig.embeddingsEnabled && hasEmbeddings;
+
+      if (useEmbeddings) {
+        console.log("[topic-intel] semantic search using embeddings", {
+          hybrid: topicIntelligenceSearchConfig.hybridMode,
+        });
+
+        const queryEmbedding = await generateEmbedding(query);
+        const scored = keywordInfo
+          .filter(
+            (info) =>
+              Array.isArray(info.chunk.embedding) && info.chunk.embedding.length > 0
+          )
+          .map((info) => {
+            const cosine = cosineSimilarity(
+              queryEmbedding.embedding,
+              info.chunk.embedding as number[]
+            );
+            const finalScore = topicIntelligenceSearchConfig.hybridMode
+              ? Math.max(0, 0.7 * cosine + 0.3 * info.keywordScore)
+              : cosine;
+            return { info, similarity: finalScore };
+          })
+          .filter((item) => item.similarity >= threshold)
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, topK);
+
+        const enhanced = await Promise.all(
+          scored.map(async ({ info, similarity }) => {
+            let sourceFile: string | undefined;
+            if (info.chunk.uploadedFileId) {
+              const file = await this.storage.getUploadedFile(info.chunk.uploadedFileId);
+              sourceFile = file?.filename;
+            }
+            return {
+              chunkId: info.chunk.id,
+              content: info.chunk.content,
+              similarity,
+              heading: info.chunk.heading || undefined,
+              sourceFile,
+            };
+          })
+        );
+        return enhanced;
+      }
+
+      console.log("[topic-intel] semantic search using keyword fallback");
+      const keywordResults = keywordInfo
+        .map(({ chunk, keywordScore }) => ({
+          chunk,
+          similarity: keywordScore,
+        }))
+        .filter((result) => result.similarity >= threshold)
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, topK);
 
-      // Enhance with source file info
       const enhanced = await Promise.all(
-        results.map(async (r) => {
+        keywordResults.map(async (r) => {
           let sourceFile: string | undefined;
-          
-          if (r.chunk?.uploadedFileId) {
+          if (r.chunk.uploadedFileId) {
             const file = await this.storage.getUploadedFile(r.chunk.uploadedFileId);
             sourceFile = file?.filename;
           }
-
           return {
-            chunkId: r.chunkId,
-            content: r.content,
+            chunkId: r.chunk.id,
+            content: r.chunk.content,
             similarity: r.similarity,
-            heading: r.heading,
+            heading: r.chunk.heading || undefined,
             sourceFile,
           };
         })
@@ -408,4 +492,13 @@ export class TopicIntelligenceService {
       throw error;
     }
   }
+}
+
+function cosineSimilarity(a: number[], b: number[]): number {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return 0;
+  const dot = a.reduce((sum, value, index) => sum + value * (b[index] ?? 0), 0);
+  const magA = Math.sqrt(a.reduce((sum, value) => sum + value * value, 0));
+  const magB = Math.sqrt(b.reduce((sum, value) => sum + value * value, 0));
+  if (!magA || !magB) return 0;
+  return dot / (magA * magB);
 }

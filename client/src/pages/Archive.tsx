@@ -1,19 +1,22 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Archive as ArchiveIcon, FileText, Clock, Trash2, RotateCcw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/components/LanguageProvider";
-import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { createAppMutation } from "@/lib/mutationHelper";
+import ConfirmationDialog from "@/components/common/ConfirmationDialog";
+import { fillTemplate } from "@/lib/utils";
 import type { Document } from "@shared/schema";
 
 const translations = {
   en: {
     archive: "Document Archive",
     archiveDescription: "View and manage your archived documents. Restore documents back to your main library or permanently delete them.",
+    cancel: "Cancel",
     noArchive: "No archived documents yet. When you archive documents, they will appear here.",
     title: "Title",
     type: "Type",
@@ -23,7 +26,8 @@ const translations = {
     delete: "Delete",
     restoring: "Restoring...",
     deleting: "Deleting...",
-    confirmDelete: "Are you sure? This will permanently delete the document.",
+    confirmDeleteTitle: "Delete permanently?",
+    confirmDeleteDescription: "Are you sure you want to delete {name}? This will permanently delete the document.",
     restoreSuccess: "Document restored successfully",
     deleteSuccess: "Document deleted permanently",
     restoreError: "Failed to restore document",
@@ -32,6 +36,7 @@ const translations = {
   ar: {
     archive: "أرشيف المستندات",
     archiveDescription: "اعرض وأدر مستنداتك المؤرشفة. استرجع المستندات إلى مكتبتك الرئيسية أو احذفها نهائياً.",
+    cancel: "إلغاء",
     noArchive: "لا توجد مستندات مؤرشفة بعد. عند أرشفتك للمستندات ستظهر هنا.",
     title: "العنوان",
     type: "النوع",
@@ -41,7 +46,8 @@ const translations = {
     delete: "حذف",
     restoring: "جاري الاسترجاع...",
     deleting: "جاري الحذف...",
-    confirmDelete: "هل أنت متأكد؟ سيتم حذف المستند نهائياً.",
+    confirmDeleteTitle: "حذف دائم؟",
+    confirmDeleteDescription: "هل أنت متأكد أنك تريد حذف {name}? سيتم حذف المستند نهائياً.",
     restoreSuccess: "تم استرجاع المستند بنجاح",
     deleteSuccess: "تم حذف المستند نهائياً",
     restoreError: "فشل استرجاع المستند",
@@ -50,6 +56,7 @@ const translations = {
   de: {
     archive: "Dokumentenarchiv",
     archiveDescription: "Anzeigen und Verwalten Ihrer archivierten Dokumente. Stellen Sie Dokumente in Ihrer Hauptbibliothek wieder her oder löschen Sie sie dauerhaft.",
+    cancel: "Abbrechen",
     noArchive: "Noch keine archivierten Dokumente. Wenn Sie Dokumente archivieren, werden sie hier angezeigt.",
     title: "Titel",
     type: "Typ",
@@ -59,7 +66,8 @@ const translations = {
     delete: "Löschen",
     restoring: "Wird wiederhergestellt...",
     deleting: "Wird gelöscht...",
-    confirmDelete: "Sind Sie sicher? Das Dokument wird dauerhaft gelöscht.",
+    confirmDeleteTitle: "Dauerhaft löschen?",
+    confirmDeleteDescription: "Sind Sie sicher, dass Sie {name} löschen möchten? Das Dokument wird dauerhaft gelöscht.",
     restoreSuccess: "Dokument erfolgreich wiederhergestellt",
     deleteSuccess: "Dokument dauerhaft gelöscht",
     restoreError: "Fehler beim Wiederherstellen des Dokuments",
@@ -70,57 +78,45 @@ const translations = {
 export default function Archive() {
   const { language } = useLanguage();
   const t = translations[language];
-  const { toast } = useToast();
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [docPendingDelete, setDocPendingDelete] = useState<Document | null>(null);
 
   const { data: archivedDocs = [], isLoading } = useQuery<Document[]>({
     queryKey: ["/api/documents/archived"],
   });
 
-  const restoreMutation = useMutation({
+  const restoreMutation = createAppMutation({
     mutationFn: async (docId: string) => {
       setRestoringId(docId);
       return await apiRequest("PATCH", `/api/documents/${docId}/restore`, null);
     },
+    onSuccessMessage: t.restoreSuccess,
+    onErrorMessage: t.restoreError,
+    invalidate: ["/api/documents/archived", "/api/documents"],
+    debugLabel: "restore-document",
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/documents/archived"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/documents"] });
-      toast({
-        title: "Success",
-        description: t.restoreSuccess,
-      });
       setRestoringId(null);
     },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: t.restoreError,
-        variant: "destructive",
-      });
+    onError: () => {
       setRestoringId(null);
     },
   });
 
-  const deleteMutation = useMutation({
+  const deleteMutation = createAppMutation({
     mutationFn: async (docId: string) => {
       setDeletingId(docId);
       return await apiRequest("DELETE", `/api/documents/${docId}/permanent`, null);
     },
+    onSuccessMessage: t.deleteSuccess,
+    onErrorMessage: t.deleteError,
+    invalidate: ["/api/documents/archived"],
+    debugLabel: "delete-archive",
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/documents/archived"] });
-      toast({
-        title: "Success",
-        description: t.deleteSuccess,
-      });
       setDeletingId(null);
     },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: t.deleteError,
-        variant: "destructive",
-      });
+    onError: () => {
       setDeletingId(null);
     },
   });
@@ -129,11 +125,31 @@ export default function Archive() {
     restoreMutation.mutate(docId);
   };
 
-  const handleDelete = (docId: string) => {
-    if (confirm(t.confirmDelete)) {
-      deleteMutation.mutate(docId);
+  const openDeleteDialog = (doc: Document) => {
+    setDocPendingDelete(doc);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteDialogChange = (open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) {
+      setDocPendingDelete(null);
     }
   };
+
+  const getDocumentLabel = () => {
+    if (!docPendingDelete) {
+      return t.archive;
+    }
+    if (docPendingDelete.title?.trim()) {
+      return docPendingDelete.title;
+    }
+    return docPendingDelete.documentType || t.archive;
+  };
+
+  const deleteDialogDescription = fillTemplate(t.confirmDeleteDescription, {
+    name: getDocumentLabel(),
+  });
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -189,7 +205,7 @@ export default function Archive() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDelete(doc.id)}
+                    onClick={() => openDeleteDialog(doc)}
                     disabled={deletingId === doc.id}
                     className="text-destructive hover:text-destructive"
                     data-testid={`button-delete-${doc.id}`}
@@ -210,6 +226,21 @@ export default function Archive() {
           </CardContent>
         </Card>
       )}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={handleDeleteDialogChange}
+        title={t.confirmDeleteTitle}
+        description={deleteDialogDescription}
+        confirmLabel={t.delete}
+        cancelLabel={t.cancel}
+        tone="danger"
+        onConfirm={async () => {
+          if (!docPendingDelete) {
+            return;
+          }
+          await deleteMutation.mutateAsync(docPendingDelete.id);
+        }}
+      />
     </div>
   );
 }

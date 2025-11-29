@@ -4,6 +4,8 @@ import { users } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 import { requireAuth } from "./index";
 
+type DbUser = typeof users.$inferSelect;
+
 // Middleware to require admin access
 async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.user) {
@@ -26,9 +28,9 @@ export function registerAdminRoutes(app: Express) {
   // Get all users with their usage info
   app.get("/api/admin/users", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const allUsers = await db.select().from(users).orderBy(desc(users.createdAt));
+      const allUsers = (await db.select().from(users).orderBy(desc(users.createdAt))) as DbUser[];
 
-      const usersData = allUsers.map((user) => ({
+      const usersData = allUsers.map((user: DbUser) => ({
         id: user.id,
         email: user.email,
         role: user.role,
@@ -142,27 +144,27 @@ export function registerAdminRoutes(app: Express) {
   // Get system stats
   app.get("/api/admin/stats", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const allUsers = await db.select().from(users);
+      const allUsers = (await db.select().from(users)) as DbUser[];
 
-      const totalDailyUsage = allUsers.reduce((sum, u) => sum + u.dailyUsageCount, 0);
+      const totalDailyUsage = allUsers.reduce((sum: number, u: DbUser) => sum + u.dailyUsageCount, 0);
       const avgDailyUsagePerUser = allUsers.length > 0 ? Math.round(totalDailyUsage / allUsers.length) : 0;
 
       const stats = {
         totalUsers: allUsers.length,
-        activeUsers: allUsers.filter((u) => {
+        activeUsers: allUsers.filter((u: DbUser) => {
           if (u.dailyUsageDate) {
             const today = new Date().toISOString().split("T")[0];
             return u.dailyUsageDate === today;
           }
           return false;
         }).length,
-        freeUsers: allUsers.filter((u) => u.plan === "FREE").length,
-        proUsers: allUsers.filter((u) => u.plan.startsWith("PRO")).length,
-        adminUsers: allUsers.filter((u) => u.role === "admin").length,
+        freeUsers: allUsers.filter((u: DbUser) => u.plan === "FREE").length,
+        proUsers: allUsers.filter((u: DbUser) => u.plan.startsWith("PRO")).length,
+        adminUsers: allUsers.filter((u: DbUser) => u.role === "admin").length,
         totalDailyUsage,
         avgDailyUsagePerUser,
         freeDailyLimit: parseInt(process.env.FREE_DAILY_LIMIT || "5"),
-        usersNearLimit: allUsers.filter((u) => u.plan === "FREE" && u.dailyUsageCount >= 4).length,
+        usersNearLimit: allUsers.filter((u: DbUser) => u.plan === "FREE" && u.dailyUsageCount >= 4).length,
       };
 
       res.json(stats);
@@ -175,7 +177,7 @@ export function registerAdminRoutes(app: Express) {
   // Get system health
   app.get("/api/admin/health", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const allUsers = await db.select().from(users);
+      const allUsers = (await db.select().from(users)) as DbUser[];
       
       const health = {
         status: "healthy",
@@ -222,13 +224,13 @@ export function registerAdminRoutes(app: Express) {
   // Export users as CSV
   app.get("/api/admin/users/export", requireAuth, requireAdmin, async (req: Request, res: Response) => {
     try {
-      const allUsers = await db.select().from(users);
+      const allUsers = (await db.select().from(users)) as DbUser[];
       
       // Create CSV header
       const csvHeader = "ID,Email,Role,Plan,Created At,Daily Usage\n";
       
       // Create CSV rows
-      const csvRows = allUsers.map((user) => {
+      const csvRows = allUsers.map((user: DbUser) => {
         const createdAt = new Date(user.createdAt).toISOString().split("T")[0];
         return `"${user.id}","${user.email}","${user.role}","${user.plan}","${createdAt}","${user.dailyUsageCount}"`;
       }).join("\n");

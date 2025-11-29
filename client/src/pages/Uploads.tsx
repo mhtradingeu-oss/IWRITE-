@@ -7,13 +7,17 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import ConfirmationDialog from "@/components/common/ConfirmationDialog";
 import { useLanguage } from "@/components/LanguageProvider";
+import { fillTemplate } from "@/lib/utils";
+import { createAppMutation } from "@/lib/mutationHelper";
 import type { UploadedFile } from "@shared/schema";
 
 const translations = {
   en: {
     uploads: "File Uploads",
     uploadNew: "Upload Files",
+    cancel: "Cancel",
     noUploads: "No uploaded files yet. Upload your first file to get started!",
     dragDrop: "Drag & drop files here or click to browse",
     supportedFormats: "Supported: PDF, DOCX, CSV, XLSX, Images",
@@ -21,17 +25,24 @@ const translations = {
     fileType: "Type",
     uploadedAt: "Uploaded",
     actions: "Actions",
+    saveSuccess: "Files uploaded successfully",
+    saveError: "Failed to upload files",
     delete: "Delete",
+    confirmDeleteFileTitle: "Delete upload?",
+    confirmDeleteFileDescription: "Are you sure you want to delete {name}? This cannot be undone.",
     download: "Download",
     view: "View",
     process: "Process",
     processing: "Processing...",
     processSuccess: "File processed successfully",
     processError: "Failed to process file",
+    deleteSuccess: "File deleted",
+    deleteError: "Failed to delete file",
   },
   ar: {
     uploads: "الملفات المرفوعة",
     uploadNew: "رفع ملفات",
+    cancel: "إلغاء",
     noUploads: "لا توجد ملفات مرفوعة بعد. ارفع أول ملف للبدء!",
     dragDrop: "اسحب وأفلت الملفات هنا أو انقر للتصفح",
     supportedFormats: "مدعوم: PDF, DOCX, CSV, XLSX, صور",
@@ -39,17 +50,24 @@ const translations = {
     fileType: "النوع",
     uploadedAt: "تاريخ الرفع",
     actions: "الإجراءات",
+    saveSuccess: "تم رفع الملفات بنجاح",
+    saveError: "فشل رفع الملفات",
     delete: "حذف",
+    confirmDeleteFileTitle: "حذف الرفع؟",
+    confirmDeleteFileDescription: "هل أنت متأكد أنك تريد حذف {name}? لا يمكن التراجع عن هذا الإجراء.",
     download: "تنزيل",
     view: "عرض",
     process: "معالجة",
     processing: "جاري المعالجة...",
     processSuccess: "تمت معالجة الملف بنجاح",
     processError: "فشلت معالجة الملف",
+    deleteSuccess: "تم حذف الملف",
+    deleteError: "فشل حذف الملف",
   },
   de: {
     uploads: "Datei-Uploads",
     uploadNew: "Dateien hochladen",
+    cancel: "Abbrechen",
     noUploads: "Noch keine hochgeladenen Dateien. Laden Sie Ihre erste Datei hoch!",
     dragDrop: "Dateien hierher ziehen oder klicken zum Durchsuchen",
     supportedFormats: "Unterstützt: PDF, DOCX, CSV, XLSX, Bilder",
@@ -57,13 +75,19 @@ const translations = {
     fileType: "Typ",
     uploadedAt: "Hochgeladen",
     actions: "Aktionen",
+    saveSuccess: "Dateien erfolgreich hochgeladen",
+    saveError: "Datei-Upload fehlgeschlagen",
     delete: "Löschen",
+    confirmDeleteFileTitle: "Upload löschen?",
+    confirmDeleteFileDescription: "Möchten Sie {name} wirklich löschen? Dies kann nicht rückgängig gemacht werden.",
     download: "Herunterladen",
     view: "Ansehen",
     process: "Verarbeiten",
     processing: "Verarbeitung...",
     processSuccess: "Datei erfolgreich verarbeitet",
     processError: "Verarbeitung fehlgeschlagen",
+    deleteSuccess: "Datei gelöscht",
+    deleteError: "Datei konnte nicht gelöscht werden",
   },
 };
 
@@ -80,13 +104,15 @@ export default function Uploads() {
   const { language } = useLanguage();
   const t = translations[language];
   const { toast } = useToast();
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [uploadPendingDelete, setUploadPendingDelete] = useState<UploadedFile | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   const { data: uploads, isLoading } = useQuery<UploadedFile[]>({
     queryKey: ["/api/uploads"],
   });
 
-  const uploadMutation = useMutation({
+  const uploadMutation = createAppMutation({
     mutationFn: async (files: FileList) => {
       const formData = new FormData();
       Array.from(files).forEach((file) => {
@@ -97,33 +123,21 @@ export default function Uploads() {
         body: formData,
       }).then((res) => res.json());
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/uploads"] });
-      toast({
-        title: "Files uploaded successfully",
-        description: "Your files have been processed.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error uploading files",
-        description: error.message || "An error occurred",
-        variant: "destructive",
-      });
-    },
+    onSuccessMessage: t.saveSuccess,
+    onErrorMessage: t.saveError,
+    invalidate: ["/api/uploads"],
+    retry: 1,
+    debugLabel: "upload-files",
   });
 
-  const deleteMutation = useMutation({
+  const deleteMutation = createAppMutation({
     mutationFn: async (id: string) => {
       return await apiRequest("DELETE", `/api/uploads/${id}`, null);
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/uploads"] });
-      toast({
-        title: "File deleted",
-        description: "The file has been removed.",
-      });
-    },
+    onSuccessMessage: t.deleteSuccess,
+    onErrorMessage: t.deleteError,
+    invalidate: ["/api/uploads"],
+    debugLabel: "delete-upload",
   });
 
   const processMutation = useMutation({
@@ -169,6 +183,17 @@ export default function Uploads() {
       uploadMutation.mutate(e.target.files);
     }
   };
+
+  const handleDeleteDialogChange = (open: boolean) => {
+    setDeleteDialogOpen(open);
+    if (!open) {
+      setUploadPendingDelete(null);
+    }
+  };
+
+  const deleteDialogDescription = fillTemplate(t.confirmDeleteFileDescription, {
+    name: uploadPendingDelete?.filename ?? t.uploads,
+  });
 
   const getFileIcon = (fileType: string) => {
     const Icon = fileIcons[fileType as keyof typeof fileIcons] || fileIcons.default;
@@ -264,7 +289,10 @@ export default function Uploads() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 text-destructive hover:text-destructive"
-                      onClick={() => deleteMutation.mutate(upload.id)}
+                      onClick={() => {
+                        setUploadPendingDelete(upload);
+                        setDeleteDialogOpen(true);
+                      }}
                       data-testid={`button-delete-${upload.id}`}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -283,6 +311,21 @@ export default function Uploads() {
           </CardContent>
         </Card>
       )}
+      <ConfirmationDialog
+        open={deleteDialogOpen}
+        onOpenChange={handleDeleteDialogChange}
+        title={t.confirmDeleteFileTitle}
+        description={deleteDialogDescription}
+        confirmLabel={t.delete}
+        cancelLabel={t.cancel}
+        tone="danger"
+        onConfirm={async () => {
+          if (!uploadPendingDelete) {
+            return;
+          }
+          await deleteMutation.mutateAsync(uploadPendingDelete.id);
+        }}
+      />
     </div>
   );
 }
